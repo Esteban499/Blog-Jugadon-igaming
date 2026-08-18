@@ -1,0 +1,63 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    // El handler del Jobs Queue lo carga Payload con un `import()` crudo de
+    // Node, fuera del bundler de Next, y ahi los imports relativos necesitan la
+    // extension escrita. Esto deja escribirla sin que TypeScript proteste; se
+    // permite porque `noEmit` esta activo y nadie compila estos archivos a JS.
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    /*
+     * Sin `baseUrl`, a proposito.
+     *
+     * Estaba, y con el hacia falta `"ignoreDeprecations": "6.0"` para callar el
+     * aviso de que deja de funcionar en TypeScript 7. Pero el TypeScript que
+     * trae el proyecto es el 5.9.3, que no acepta ese valor: abortaba con
+     * TS5103 antes de revisar una sola linea, y `pnpm build` fallaba entero en
+     * el paso de type check.
+     *
+     * Sacar `baseUrl` resuelve las dos puntas en vez de elegir una. Los `paths`
+     * de abajo ya se resuelven relativos a la carpeta de este archivo, que es
+     * justo lo que hacia `baseUrl: "."`, asi que `@/*` y `@payload-config`
+     * siguen apuntando exactamente adonde apuntaban.
+     */
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@payload-config": [
+        "./src/payload.config.ts"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

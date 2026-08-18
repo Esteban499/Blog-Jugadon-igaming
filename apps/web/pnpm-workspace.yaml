@@ -1,0 +1,5 @@
+# pnpm 10+ bloquea los scripts de instalacion salvo que se los apruebe aca.
+# esbuild los necesita para dejar el binario de la plataforma en su lugar.
+allowBuilds:
+  esbuild: true
+  sharp: true

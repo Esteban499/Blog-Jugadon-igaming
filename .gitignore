@@ -1,0 +1,75 @@
+# ---- Dependencias ----
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+
+# ---- Build / salida ----
+.next/
+out/
+dist/
+build/
+.turbo/
+.vercel/
+
+# ---- TypeScript ----
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+tsconfig.check.json
+next-env.d.ts
+
+# ---- Entorno ----
+# El .env de este repo solo tiene credenciales locales (MinIO, Postgres de
+# Docker, secret de desarrollo), asi que se versiona a proposito para que
+# cualquiera pueda levantar el proyecto sin configurar nada.
+# Lo que NO se versiona nunca: los overrides locales y todo lo de produccion.
+.env.local
+.env.*.local
+.env.production
+.env.production.*
+*.pem
+*.key
+
+# ---- Payload ----
+# Uploads del adaptador local. En este proyecto el media vive en MinIO/R2,
+# pero si se cae el storage Payload escribe aca.
+apps/web/media/
+apps/web/src/media/
+
+# ---- Mapa (generados por scripts/generar-mapa.sh) ----
+# El .pmtiles se sube al bucket, no al repo: son cientos de MB.
+*.pmtiles
+*.mbtiles
+scripts/*.zip
+scripts/tmp/
+
+# ---- Logs ----
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# ---- Tests / cobertura ----
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# ---- Editores ----
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# ---- Herramientas ----
+.claude/settings.local.json
+.cache/
+.eslintcache
+
+# ---- Sistema operativo ----
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db

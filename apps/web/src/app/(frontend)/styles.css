@@ -1,0 +1,863 @@
+/*
+ * El orden de las capas, declarado antes que nada.
+ *
+ * Entre capas gana la ultima, y el orden lo fija la primera vez que aparece
+ * cada nombre. Sin esta linea, `maplibre` quedaba registrada despues de las de
+ * Tailwind —porque su `@import` se expande antes— y terminaba GANANDOLE a
+ * `components`: los retoques del bloque MAPA del final de este archivo no
+ * pintaban nunca. Declarada primera, la hoja de MapLibre queda por debajo de
+ * todo lo nuestro, que es donde tiene que estar.
+ *
+ * Un `@layer` sin bloque es de las pocas reglas que pueden ir antes de un
+ * `@import`, junto con `@charset`.
+ */
+@layer maplibre, theme, base, components, utilities;
+
+@import "tailwindcss";
+
+/*
+ * La hoja de MapLibre entra aca y no importada desde el componente: desde un
+ * `.tsx` quedaria SIN capa, y en la cascada lo no-capado le gana a cualquier
+ * `@layer` tenga la especificidad que tenga.
+ */
+@import "maplibre-gl/dist/maplibre-gl.css" layer(maplibre);
+
+/*
+ * Tailwind v4 busca clases a partir del directorio de este archivo, que es
+ * `(frontend)/`. Sin esto no ve nada de `src/components/` y las clases de la
+ * Navbar, el Footer y las tarjetas salen sin CSS.
+ */
+@source "../../";
+
+/*
+ * =========================================================================
+ * SISTEMA DE DISEÑO — Jugadón
+ *
+ * Todos los valores salen de DISENO-BLOG-JUGADON.md y viven una sola vez,
+ * aca. Ningun componente escribe un hex ni un pixel a mano: si un componente
+ * necesita un valor que no esta en este bloque, falta una definicion y se
+ * agrega al sistema, no al componente.
+ *
+ * Los cuatro `initial` de abajo borran las escalas que Tailwind trae de
+ * fabrica —su paleta entera, sus tamanos de letra, sus radios y sus sombras—
+ * antes de definir las nuestras. No es higiene: es lo que hace imposible
+ * escribir `bg-red-500`, `text-sm`, `rounded-xl` o `shadow-lg`, que son justo
+ * las cuatro familias que el manual prohibe. Lo que no esta en el sistema no
+ * compila.
+ * =========================================================================
+ */
+@theme {
+  /* ----------------------------------------------------------------- */
+  /* COLOR (§2)                                                        */
+  /* ----------------------------------------------------------------- */
+  --color-*: initial;
+
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /*
+   * Superficies: tres niveles, no mas. El fondo es institucional —es la
+   * firma cromatica del sitio—; los otros dos son derivados que un tema
+   * oscuro necesita y el manual de marca no define.
+   */
+  --color-fondo: #00003c;
+  --color-superficie: #060a46;
+  --color-elevada: #0c1454;
+
+  /*
+   * Azul de marca. Encabeza la jerarquia, pero como fondo: sobre el azul
+   * profundo su contraste como texto cae a 3.2:1 y el elemento se pierde.
+   */
+  --color-marca: #1258db;
+  --color-marca-hover: #0d47b8;
+  --color-profundo: #002788;
+
+  /* Accion. Un solo trabajo, y un solo elemento por pantalla. */
+  --color-accion: #fc891e;
+  --color-accion-hover: #e0740f;
+
+  /* Enlaces en linea: el azul que si se lee sobre fondo oscuro. */
+  --color-enlace: #5b8def;
+
+  /* Texto: tres niveles. */
+  --color-tinta: #ffffff;
+  --color-parrafo: #bcc1d3;
+  --color-apagado: #7f86a4;
+
+  /*
+   * Bordes. Siempre 1px, nunca mas gruesos. El hairline separa cards; el
+   * contorno, divisores y elementos interactivos.
+   */
+  --color-hairline: rgba(188, 193, 211, 0.12);
+  --color-contorno: rgba(188, 193, 211, 0.24);
+
+  /* Azul de apoyo: fondo de tag y de encabezado de tabla, y su borde. */
+  --color-azul-velo: rgba(18, 88, 219, 0.18);
+  --color-azul-contorno: rgba(18, 88, 219, 0.35);
+
+  /* Naranja de borde: unico uso del acento como linea, en el hover de card. */
+  --color-accion-contorno: rgba(252, 137, 30, 0.45);
+
+  /* ----------------------------------------------------------------- */
+  /* TIPOGRAFIA (§3)                                                   */
+  /* ----------------------------------------------------------------- */
+  --font-*: initial;
+
+  /*
+   * Display: la voz de la marca. Con moderacion, nunca en parrafos.
+   * Utilitaria: siempre en mayusculas y con tracking positivo.
+   * Cuerpo: la grotesca silenciosa que sostiene 1.500 palabras.
+   *
+   * Las tres familias concretas se cargan en layout.tsx y llegan aca como
+   * `--fuente-*`. Ningun componente nombra una familia.
+   */
+  --font-display: var(--fuente-display), ui-sans-serif, system-ui, sans-serif;
+  --font-util: var(--fuente-util), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--fuente-cuerpo), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+
+  --text-*: initial;
+
+  /*
+   * Los tres tamanos fluidos crecen entre 360px y 1280px de ventana. La base
+   * va en `rem` y solo la pendiente en `vw`: si fueran `vw` puro, agrandar la
+   * letra desde el navegador no moveria nada y el sitio dejaria de cumplir el
+   * criterio de redimensionado de texto de WCAG.
+   */
+
+  /* H1 de articulo. 36 -> 60 */
+  --text-h1: clamp(2.25rem, 1.6631rem + 2.6087vw, 3.75rem);
+  --text-h1--line-height: 1.05;
+  --text-h1--letter-spacing: -0.025em;
+  --text-h1--font-weight: 700;
+
+  /* H1 de seccion. 32 -> 48 */
+  --text-h1-seccion: clamp(2rem, 1.6087rem + 1.7391vw, 3rem);
+  --text-h1-seccion--line-height: 1.1;
+  --text-h1-seccion--letter-spacing: -0.02em;
+  --text-h1-seccion--font-weight: 700;
+
+  /* H2. 26 -> 34 */
+  --text-h2: clamp(1.625rem, 1.4294rem + 0.8696vw, 2.125rem);
+  --text-h2--line-height: 1.15;
+  --text-h2--letter-spacing: -0.02em;
+  --text-h2--font-weight: 700;
+
+  --text-h3: 1.375rem; /* 22px */
+  --text-h3--line-height: 1.25;
+  --text-h3--letter-spacing: -0.01em;
+  --text-h3--font-weight: 700;
+
+  --text-card: 1.25rem; /* 20px */
+  --text-card--line-height: 1.2;
+  --text-card--letter-spacing: -0.015em;
+  --text-card--font-weight: 700;
+
+  --text-bajada: 1.375rem; /* 22px */
+  --text-bajada--line-height: 1.55;
+
+  --text-cuerpo: 1.125rem; /* 18px */
+  --text-cuerpo--line-height: 1.75;
+
+  --text-cita: 1.3125rem; /* 21px */
+  --text-cita--line-height: 1.5;
+
+  /* El eyebrow es el unico texto naranja del sistema. */
+  --text-eyebrow: 0.8125rem; /* 13px */
+  --text-eyebrow--line-height: 1.2;
+  --text-eyebrow--letter-spacing: 0.12em;
+  --text-eyebrow--font-weight: 700;
+
+  --text-boton: 0.9375rem; /* 15px */
+  --text-boton--line-height: 1;
+  --text-boton--letter-spacing: 0.04em;
+  --text-boton--font-weight: 700;
+
+  --text-meta: 0.8125rem; /* 13px */
+  --text-meta--line-height: 1.4;
+  --text-meta--letter-spacing: 0.02em;
+
+  --text-tag: 0.75rem; /* 12px */
+  --text-tag--line-height: 1;
+  --text-tag--letter-spacing: 0.08em;
+  --text-tag--font-weight: 700;
+
+  --text-menu: 0.875rem; /* 14px */
+  --text-menu--line-height: 1;
+  --text-menu--letter-spacing: 0.06em;
+  --text-menu--font-weight: 700;
+
+  --text-legal: 0.75rem; /* 12px */
+  --text-legal--line-height: 1.5;
+  --text-legal--letter-spacing: 0.02em;
+
+  /* ----------------------------------------------------------------- */
+  /* GEOMETRIA (§4.2)                                                  */
+  /* ----------------------------------------------------------------- */
+  --radius-*: initial;
+  --shadow-*: initial;
+
+  /*
+   * Dos formas y nada intermedio: rectangulos rectos (`rounded-none`), 4px
+   * para cards, imagenes, inputs y tablas, y pildora total (`rounded-full`)
+   * para botones, tags y avatares. Sin 12, 16 ni 24: ese salto de escala es
+   * lo que hace que una interfaz parezca plantilla.
+   */
+  --radius-caja: 4px;
+
+  /* ----------------------------------------------------------------- */
+  /* LAYOUT (§4.3)                                                     */
+  /* ----------------------------------------------------------------- */
+  --container-sitio: 1200px;
+  --container-lectura: 720px;
+
+  /*
+   * Los dos anchos de tarjeta del carrusel salen de la grilla de listado, no
+   * de un numero elegido a ojo: la normal mide una columna de la grilla de
+   * tres, y la ancha, dos columnas mas el gap. Es lo que hace que una nota se
+   * vea del mismo tamano en la portada y en el listado.
+   *
+   *   normal = (1200 - 24*2) / 3          = 384px
+   *   ancha  = 384 * 2 + 24               = 592px
+   */
+  --container-card: 24rem; /* 384px */
+  --container-card-ancha: 37rem; /* 592px */
+
+  /* ----------------------------------------------------------------- */
+  /* MOVIMIENTO (§6)                                                   */
+  /* ----------------------------------------------------------------- */
+  --ease-marca: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ========================================================================= */
+/* BASE                                                                      */
+/* ========================================================================= */
+
+@layer base {
+  /*
+   * Alto de la barra de navegacion. Vive fuera de `@theme` porque no genera
+   * ninguna utilidad: lo consumen el `scroll-margin` de las anclas, el hero
+   * del articulo y la portada, y en los tres casos se lee como variable.
+   */
+  :root {
+    --alto-barra: 72px;
+
+    /*
+     * Cuanto trepan las noticias por encima de la portada anclada.
+     *
+     * Es un solo numero y lo leen dos lugares que tienen que coincidir
+     * exactamente: el alto del espaciador que le da recorrido al `sticky` y el
+     * margen negativo de la seccion que se le monta encima. Escrito dos veces,
+     * cualquier retoque deja un hueco o un salto.
+     *
+     * Tambien lo usa la linea legal de la portada para anclarse justo por
+     * encima de la zona que las tarjetas van a tapar.
+     */
+    --solapamiento: 35vh;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    /*
+     * "Cifras siempre tabulares": cuotas, porcentajes, fechas y tablas.
+     * Puesto una vez arriba de todo, ningun componente tiene que acordarse.
+     */
+    font-variant-numeric: tabular-nums;
+    background-color: var(--color-fondo);
+  }
+
+  body {
+    background-color: var(--color-fondo);
+    color: var(--color-parrafo);
+    font-family: var(--font-sans);
+    font-size: var(--text-cuerpo);
+    line-height: var(--text-cuerpo--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+   * El encabezado queda fijo, asi que un ancla aterriza debajo de el. Este
+   * margen corre el destino el alto de la barra mas un respiro.
+   */
+  :target {
+    scroll-margin-top: calc(var(--alto-barra) + 24px);
+  }
+
+  /* Foco de teclado visible en todo lo interactivo (§11). */
+  :focus-visible {
+    outline: 2px solid var(--color-accion);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
+  /*
+   * `prefers-reduced-motion` respetado en todo el sitio (§6). Una sola regla
+   * apaga cualquier transicion o animacion, incluidas las que se escriban
+   * despues de este archivo.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ========================================================================= */
+/* UTILIDADES DE LAYOUT                                                      */
+/* ========================================================================= */
+
+/* Contenedor maximo 1200px; gutter 24px en desktop, 16px en movil (§4.3). */
+@utility contenedor {
+  width: 100%;
+  max-width: calc(var(--container-sitio) + 48px);
+  margin-inline: auto;
+  padding-inline: 16px;
+
+  @media (width >= 768px) {
+    padding-inline: 24px;
+  }
+}
+
+/* Columna de lectura de 720px, centrada. Sin sidebar dentro del articulo. */
+@utility columna {
+  width: 100%;
+  max-width: calc(var(--container-lectura) + 48px);
+  margin-inline: auto;
+  padding-inline: 16px;
+
+  @media (width >= 768px) {
+    padding-inline: 24px;
+  }
+}
+
+/*
+ * Separacion entre secciones: 128px en desktop, 72px en movil. El aire es lo
+ * que separa los bloques —no cajas, no lineas, no fondos alternados—, asi que
+ * este es el valor mas importante del sistema.
+ */
+@utility ritmo {
+  padding-block: 72px;
+
+  @media (width >= 768px) {
+    padding-block: 128px;
+  }
+}
+
+/*
+ * Pista del carrusel a sangre.
+ *
+ * La pista ocupa el ancho completo de la ventana, pero la primera tarjeta
+ * arranca alineada con el contenido del contenedor. La sangria reproduce ese
+ * borde: mientras la ventana sea mas angosta que el contenedor vale el
+ * gutter, y a partir de ahi, la mitad del excedente.
+ *
+ * `scroll-padding` con el mismo valor para que el snap alinee las tarjetas
+ * contra la sangria y no contra el borde de la ventana.
+ */
+@utility pista {
+  --sangria: max(16px, calc((100% - var(--container-sitio)) / 2));
+  padding-inline: var(--sangria);
+  scroll-padding-inline: var(--sangria);
+
+  @media (width >= 768px) {
+    --sangria: max(24px, calc((100% - var(--container-sitio)) / 2));
+  }
+}
+
+/*
+ * La pista del carrusel se desplaza con los botones de flecha, no arrastrando
+ * una barra. Ocultarla es parte del diseno, no una preferencia.
+ */
+@utility sin-barra {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------------- */
+/* GRADIENTES (§2.4) — tres, y con moderacion                                */
+/* ------------------------------------------------------------------------- */
+
+@utility degradado-marca {
+  background-image: linear-gradient(135deg, var(--color-marca) 0%, var(--color-profundo) 100%);
+}
+
+@utility degradado-profundo {
+  background-image: linear-gradient(180deg, var(--color-fondo) 0%, var(--color-profundo) 100%);
+}
+
+/* Unica forma autorizada de poner texto sobre una fotografia. */
+@utility velo {
+  background-image: linear-gradient(
+    to top,
+    var(--color-fondo) 0%,
+    color-mix(in srgb, var(--color-fondo) 72%, transparent) 38%,
+    transparent 100%
+  );
+}
+
+/* ========================================================================= */
+/* COMPONENTES                                                               */
+/*                                                                           */
+/* Van en la capa `components`, que corre antes que `utilities`. Es lo que    */
+/* deja que una utilidad puntual —el `text-fondo` de un boton dentro del      */
+/* articulo, por ejemplo— le gane a la regla general de `.prosa a`. Sin la    */
+/* capa, estas reglas irian sin capa y le ganarian a todo Tailwind.           */
+/* ========================================================================= */
+
+@layer components {
+  /* ----------------------------------------------------------------- */
+  /* ENTRADA AL SCROLL (§6)                                            */
+  /*                                                                   */
+  /* Opacidad mas 12px de desplazamiento vertical, 400ms, una sola vez.*/
+  /* Sin cascadas encadenadas: el movimiento premium confirma, no       */
+  /* anuncia.                                                          */
+  /* ----------------------------------------------------------------- */
+
+  .revelar {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  .revelar-visible {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 400ms var(--ease-marca),
+      transform 400ms var(--ease-marca);
+  }
+
+  /* ----------------------------------------------------------------- */
+  /* CUERPO DEL ARTICULO (§5.5)                                        */
+  /*                                                                   */
+  /* El contenido sale de Lexical, asi que no puede llevar clases: se   */
+  /* estila por elemento desde este contenedor. Es la unica parte del   */
+  /* sistema escrita asi, y por eso todo lo que usa sigue saliendo de   */
+  /* los tokens de arriba.                                             */
+  /* ----------------------------------------------------------------- */
+
+  .prosa {
+    color: var(--color-parrafo);
+    font-size: var(--text-cuerpo);
+    line-height: var(--text-cuerpo--line-height);
+  }
+
+  /*
+   * Ancho de columna: 68 caracteres, y no se excede nunca.
+   *
+   * La columna de lectura mide 720px, que a 18px son unos 80 caracteres: mas
+   * de los 68 que admite el manual. Asi que el limite lo pone el texto y no
+   * el contenedor —cada bloque se acota a 68ch y se centra—, y los 720px
+   * quedan disponibles para lo que si los necesita: tablas, codigo incrustado
+   * y el bloque de CTA, que se sueltan con `max-w-none`.
+   */
+  .prosa > * {
+    max-width: 68ch;
+    margin-inline: auto;
+  }
+
+  .prosa p {
+    margin-block: 0 1.5em;
+    text-wrap: pretty;
+  }
+
+  .prosa > :last-child {
+    margin-bottom: 0;
+  }
+
+  /*
+   * Los H2 no llevan adorno. El aire de 56px arriba ya establece la
+   * jerarquia; una barra o una linea de color seria justamente el elemento
+   * que hay que sacar.
+   */
+  .prosa h2 {
+    margin-block: 40px 16px;
+    font-family: var(--font-display);
+    font-size: var(--text-h2);
+    line-height: var(--text-h2--line-height);
+    letter-spacing: var(--text-h2--letter-spacing);
+    font-weight: 700;
+    color: var(--color-tinta);
+    text-wrap: balance;
+  }
+
+  @media (width >= 768px) {
+    .prosa h2 {
+      margin-top: 56px;
+    }
+  }
+
+  .prosa h3 {
+    margin-block: 32px 12px;
+    font-family: var(--font-display);
+    font-size: var(--text-h3);
+    line-height: var(--text-h3--line-height);
+    letter-spacing: var(--text-h3--letter-spacing);
+    font-weight: 700;
+    color: var(--color-tinta);
+    text-wrap: balance;
+  }
+
+  /*
+   * El h4 no abre un cuarto nivel de tamano: la escala tiene tres titulos y
+   * agregar uno mas seria inventar un escalon. Se distingue por peso y color.
+   */
+  .prosa h4 {
+    margin-block: 24px 8px;
+    font-family: var(--font-sans);
+    font-size: var(--text-cuerpo);
+    line-height: 1.4;
+    font-weight: 600;
+    color: var(--color-tinta);
+  }
+
+  .prosa strong {
+    color: var(--color-tinta);
+    font-weight: 600;
+  }
+
+  /* Enlaces en linea: azul claro, subrayado fino, offset 3px, hover naranja. */
+  .prosa a {
+    color: var(--color-enlace);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    transition: color 150ms var(--ease-marca);
+  }
+
+  .prosa a:hover {
+    color: var(--color-accion);
+  }
+
+  /* --- Listas --- */
+
+  .prosa ul,
+  .prosa ol {
+    margin-block: 0 1.5em;
+    padding: 0;
+    list-style: none;
+  }
+
+  .prosa li {
+    position: relative;
+    padding-left: 32px;
+    margin-bottom: 12px;
+  }
+
+  .prosa li:last-child {
+    margin-bottom: 0;
+  }
+
+  /*
+   * El bullet es la ficha: anillo naranja de 2px y centro transparente, del
+   * tamano de la altura de x. Este es el ornamento firma del sistema.
+   *
+   * `0.5em` sobre 18px da 9px, la altura de x de la cuerpo. Va centrado
+   * verticalmente contra la primera linea y no contra su borde superior.
+   */
+  .prosa ul > li::before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: calc((1em * var(--text-cuerpo--line-height) - 0.5em) / 2);
+    width: 0.5em;
+    height: 0.5em;
+    border: 2px solid var(--color-accion);
+    border-radius: 999px;
+  }
+
+  /*
+   * Listas numeradas solo cuando el orden significa algo. Cifras en la
+   * utilitaria, tabulares y naranjas.
+   */
+  .prosa ol {
+    counter-reset: paso;
+  }
+
+  .prosa ol > li {
+    counter-increment: paso;
+  }
+
+  .prosa ol > li::before {
+    content: counter(paso);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 20px;
+    font-family: var(--font-util);
+    font-size: var(--text-meta);
+    line-height: calc(1em * var(--text-cuerpo--line-height));
+    font-weight: 700;
+    color: var(--color-accion);
+    text-align: right;
+  }
+
+  /* --- Citas --- */
+
+  .prosa blockquote {
+    margin-block: 32px;
+    padding-left: 24px;
+    border-left: 2px solid var(--color-marca);
+    font-size: var(--text-cita);
+    line-height: var(--text-cita--line-height);
+    font-style: italic;
+    color: var(--color-tinta);
+  }
+
+  .prosa blockquote p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* --- Imagenes --- */
+
+  .prosa figure {
+    margin-block: 32px;
+  }
+
+  .prosa img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-caja);
+  }
+
+  .prosa figcaption {
+    margin-top: 12px;
+    font-family: var(--font-util);
+    font-size: var(--text-meta);
+    line-height: var(--text-meta--line-height);
+    letter-spacing: var(--text-meta--letter-spacing);
+    color: var(--color-apagado);
+    text-align: left;
+  }
+
+  /*
+   * Una imagen marcada como "ancho completo" en el panel se sale de la
+   * columna de lectura y llega hasta el contenedor del sitio. Se centra
+   * contra la ventana, no contra la columna, que es lo que la deja simetrica.
+   */
+  .prosa .ancho-completo {
+    width: min(100vw - 32px, var(--container-sitio));
+    max-width: none;
+    margin-left: 50%;
+    transform: translateX(-50%);
+  }
+
+  /* --- Tablas --- */
+
+  /*
+   * Encabezado en la utilitaria sobre azul al 18%, filas separadas por
+   * hairline, cifras tabulares. Sin bordes verticales ni filas cebradas.
+   */
+  .tabla-scroll {
+    /* Una tabla usa la columna entera: es lo que mas necesita el ancho. */
+    max-width: none;
+    margin-block: 32px;
+    overflow-x: auto;
+  }
+
+  .prosa table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: var(--radius-caja);
+    overflow: hidden;
+    font-size: var(--text-meta);
+    line-height: 1.5;
+  }
+
+  .prosa th {
+    background-color: var(--color-azul-velo);
+    font-family: var(--font-util);
+    font-size: var(--text-tag);
+    letter-spacing: var(--text-tag--letter-spacing);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--color-tinta);
+    text-align: left;
+    padding: 12px 16px;
+    white-space: nowrap;
+  }
+
+  .prosa td {
+    padding: 12px 16px;
+    border-top: 1px solid var(--color-hairline);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  /* La tabla nativa del editor guarda cada celda como un parrafo. */
+  .prosa th > p,
+  .prosa td > p {
+    margin: 0;
+    max-width: none;
+  }
+
+  /* --- Divisor dentro del contenido --- */
+
+  .prosa hr {
+    margin-block: 48px;
+    border: 0;
+    border-top: 1px solid var(--color-contorno);
+  }
+}
+
+/* ========================================================================= */
+/* MAPA (MapLibre)                                                           */
+/*                                                                           */
+/* EXCEPCION AL MANUAL DE MARCA, DECIDIDA A PROPOSITO.                       */
+/*                                                                           */
+/* El mapa de `/puntos-de-venta` no va en la paleta del sitio: va en la de    */
+/* Google Maps —tierra gris muy clara, agua celeste, calles blancas,         */
+/* autopistas amarillas, verdes pastel—. Es el unico lugar del sitio que se   */
+/* sale del sistema, y se sale ENTERO: un mapa a medias —oscuro con detalles  */
+/* claros— se lee peor que cualquiera de las dos opciones puras.              */
+/*                                                                           */
+/* El motivo es de lectura, no de gusto. Esta pantalla existe para una sola   */
+/* cosa: encontrar el local mas cercano y salir. Un mapa que se parece al que */
+/* la persona ya usa todos los dias se entiende sin mirarlo dos veces, y      */
+/* ningun mapa de marca compra tanto como cuesta esa fraccion de segundo.     */
+/*                                                                           */
+/* Por eso estos tokens se llaman `--mapa-*` y NO `--color-*`: no son del     */
+/* sistema de diseno, no generan utilidades de Tailwind y no se usan en       */
+/* ninguna otra pantalla. Un `--mapa-` fuera del mapa esta mal, y un          */
+/* `--color-` adentro del basemap tambien.                                    */
+/*                                                                           */
+/* Los marcadores son la excepcion de la excepcion: siguen en los colores de  */
+/* la marca (§2), porque son de Jugadon y no del mapa. Lo unico que cambio    */
+/* ahi es que ahora van rellenos y con anillo blanco, que es lo que se lee    */
+/* sobre tierra clara —el anillo blanco sobre nada era invisible—.            */
+/*                                                                           */
+/* Viven fuera de `@theme` a proposito: Tailwind solo emite las variables de  */
+/* `@theme` que alguna utilidad llega a usar, y a estas las lee               */
+/* `getComputedStyle` desde `utilidades/mapa.ts`, que no es una utilidad. En  */
+/* `:root` se emiten siempre.                                                */
+/*                                                                           */
+/* MapLibre ademas trae su propia hoja y dibuja sus controles con ella: la    */
+/* atribucion y el aviso de gestos salen en su gris de fabrica. El bloque de  */
+/* componentes de mas abajo los trae a la paleta del mapa —no a la del sitio, */
+/* que sobre tierra clara volveria a ser una mancha oscura—.                  */
+/*                                                                           */
+/* Es la misma clase de excepcion que `.prosa`: el markup lo genera otro      */
+/* —ahi Lexical, aca MapLibre— y no puede llevar clases nuestras.             */
+/*                                                                           */
+/* La atribucion se restila, NUNCA se esconde: los datos son de OpenStreetMap */
+/* bajo ODbL y mostrar el credito es una condicion de la licencia.            */
+/* ========================================================================= */
+
+@layer base {
+  :root {
+    /* --- Superficies --- */
+
+    /* Lo que se ve donde no llegan los datos: el archivo cubre cinco
+     * jurisdicciones, no el pais entero, y este gris es el borde de ese hueco. */
+    --mapa-fuera: #e8eaed;
+    --mapa-tierra: #f8f9fa;
+    --mapa-agua: #aadaff;
+
+    /* Parques y arbolado: el claro para las manchas chicas, el fuerte para
+     * las grandes, que es como Google marca la jerarquia del verde. */
+    --mapa-verde: #cfe9cb;
+    --mapa-verde-fuerte: #b3ddac;
+    --mapa-arena: #f4ecd8;
+
+    --mapa-edificio: #ebedef;
+    /* Predios con nombre: industria, militar, zoologico. */
+    --mapa-recinto: #f1f1ee;
+    /* Los mismos, pero en la version calida: escuelas y peatonales. */
+    --mapa-recinto-calido: #f5f1e6;
+    --mapa-salud: #f8e7e4;
+    --mapa-aeropuerto: #e9edf3;
+
+    /* --- Calles --- */
+
+    /*
+     * Blancas con contorno gris, y las importantes con el contorno un punto
+     * mas marcado: asi es como se separan dos calles paralelas sin dibujar una
+     * linea de mas. Las autopistas son lo unico con color propio.
+     */
+    --mapa-calle: #ffffff;
+    --mapa-calle-borde: #e8eaed;
+    --mapa-calle-borde-fuerte: #dadce0;
+    --mapa-autopista: #fbd473;
+    --mapa-autopista-borde: #f0b95f;
+
+    --mapa-riel: #d6d8db;
+    --mapa-limite: #b0b4ba;
+
+    /* --- Rotulos --- */
+
+    /*
+     * Tres niveles de gris, como los tres niveles de texto del sistema, y el
+     * halo siempre blanco: es lo que los deja leer cuando caen sobre una calle
+     * o sobre el agua.
+     */
+    --mapa-rotulo: #3c4043;
+    --mapa-rotulo-suave: #5f6368;
+    --mapa-rotulo-tenue: #80868b;
+    --mapa-rotulo-agua: #4c7fb0;
+    --mapa-halo: #ffffff;
+  }
+}
+
+@layer components {
+  /*
+   * El marcador. Relleno de marca, anillo blanco y una sombra minima: la
+   * sombra no es decorativa, es lo que despega un circulo de color de una
+   * calle blanca cuando los dos son igual de claros.
+   */
+  .marcador-mapa {
+    box-shadow: 0 1px 3px rgba(60, 64, 67, 0.35);
+  }
+
+  .maplibregl-ctrl-attrib {
+    background-color: color-mix(in srgb, var(--mapa-calle) 85%, transparent);
+    color: var(--mapa-rotulo-suave);
+    font-family: var(--font-util);
+    font-size: var(--text-legal);
+    border-top-left-radius: var(--radius-caja);
+  }
+
+  .maplibregl-ctrl-attrib a {
+    color: var(--mapa-rotulo-suave);
+  }
+
+  .maplibregl-ctrl-attrib a:hover {
+    color: var(--mapa-rotulo);
+  }
+
+  /* El boton "i" que despliega la atribucion en pantallas angostas. */
+  .maplibregl-ctrl-attrib-button {
+    background-color: var(--mapa-calle);
+  }
+
+  /*
+   * El aviso de "usa dos dedos para mover el mapa", que aparece cuando alguien
+   * intenta scrollear con uno solo. Es de MapLibre y lo dibuja por encima del
+   * canvas: sigue en el azul del sitio, porque es un mensaje de la interfaz y
+   * no una pieza del mapa, y sobre tierra clara es justo lo que mas contrasta.
+   */
+  .maplibregl-cooperative-gesture-screen {
+    background-color: color-mix(in srgb, var(--color-fondo) 75%, transparent);
+    color: var(--color-tinta);
+    font-family: var(--font-util);
+    font-size: var(--text-meta);
+  }
+}

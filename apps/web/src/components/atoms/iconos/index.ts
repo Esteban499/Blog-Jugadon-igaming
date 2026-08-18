@@ -1,0 +1,9 @@
+export type { IconoProps } from './tipos'
+
+export { IconoAlerta } from './IconoAlerta'
+export { IconoCerrar } from './IconoCerrar'
+export { IconoFiltros } from './IconoFiltros'
+export { IconoFlecha, type IconoFlechaProps } from './IconoFlecha'
+export { IconoInfo } from './IconoInfo'
+export { IconoMenu } from './IconoMenu'
+export { IconoUbicacion } from './IconoUbicacion'

@@ -1,0 +1,16 @@
+{
+  "name": "blog-igaming",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Blog de contenido informativo y tutoriales - Next.js + Payload CMS + PostgreSQL",
+  "scripts": {
+    "dev": "pnpm --dir apps/web dev",
+    "build": "pnpm --dir apps/web build",
+    "start": "pnpm --dir apps/web start",
+    "seed": "pnpm --dir apps/web seed",
+    "up": "docker compose up -d",
+    "down": "docker compose down",
+    "reset": "docker compose down -v",
+    "logs": "docker compose logs -f"
+  }
+}

@@ -1,0 +1,23 @@
+# Normaliza finales de linea: LF en el repo, lo que corresponda al SO al clonar.
+* text=auto
+
+# Estos siempre LF, aunque se editen en Windows: con CRLF no arrancan en Linux.
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Binarios: que git no intente convertirlos ni mostrarlos como diff.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.mp4 binary
+*.webm binary
+*.woff binary
+*.woff2 binary
+*.pmtiles binary
+
+# Lockfile: se versiona, pero no ensucia los diffs en la review.
+pnpm-lock.yaml linguist-generated=true -diff

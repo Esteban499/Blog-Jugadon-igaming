@@ -1,0 +1,231 @@
+[
+  {
+    "id": 2,
+    "slug": "bienvenido-a-jugadon",
+    "titulo": "!Bienvenido a Jugadon!",
+    "contenido": [
+      {
+        "id": "6a78e3ed540f94b99d549d1f",
+        "blockName": null,
+        "blockType": "contenido",
+        "texto": {
+          "root": {
+            "type": "root",
+            "format": "",
+            "indent": 0,
+            "version": 1,
+            "children": [
+              {
+                "tag": "h1",
+                "type": "heading",
+                "format": "",
+                "indent": 0,
+                "version": 1,
+                "children": [
+                  {
+                    "mode": "normal",
+                    "text": "¡Bienvenido a Jugadon!",
+                    "type": "text",
+                    "style": "",
+                    "detail": 0,
+                    "format": 0,
+                    "version": 1
+                  }
+                ],
+                "direction": null
+              }
+            ],
+            "direction": null
+          }
+        }
+      },
+      {
+        "id": "6a78e41e540f94b99d549d21",
+        "lenguaje": "html",
+        "archivo": null,
+        "altura": 400,
+        "codigo": "<html lang=\"es\">\r\n<head>\r\n  <meta charset=\"UTF-8\">\r\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\r\n  <title>Bienvenida</title>\r\n  \r\n  <!-- Fuente Google Fonts: Montserrat (700) -->\r\n  <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\r\n  <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\r\n  <link href=\"https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap\" rel=\"stylesheet\">\r\n\r\n  <style>\r\n    * {\r\n      box-sizing: border-box;\r\n      margin: 0;\r\n      padding: 0;\r\n    }\r\n\r\n    body {\r\n      background-color: #0f172a; /* Fondo oscuro elegante */\r\n      font-family: 'Montserrat', sans-serif;\r\n      min-height: 100vh;\r\n      display: flex;\r\n      justify-content: center;\r\n      align-items: center;\r\n    }\r\n\r\n    .title-container {\r\n      text-align: center;\r\n      padding: 20px;\r\n    }\r\n\r\n    .welcome-title {\r\n      font-size: 3rem;\r\n      font-weight: 800;\r\n      /* Texto en degradado */\r\n      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);\r\n      -webkit-background-clip: text;\r\n      -webkit-text-fill-color: transparent;\r\n      /* Sombra de texto suave */\r\n      filter: drop-shadow(0px 4px 12px rgba(56, 189, 248, 0.3));\r\n      letter-spacing: -0.5px;\r\n      transition: transform 0.3s ease;\r\n    }\r\n\r\n    .welcome-title:hover {\r\n      transform: scale(1.03);\r\n    }\r\n\r\n    /* Adaptación para pantallas chicas */\r\n    @media (max-width: 600px) {\r\n      .welcome-title {\r\n        font-size: 2rem;\r\n      }\r\n    }\r\n  </style>\r\n</head>\r\n<body>\r\n\r\n  <div class=\"title-container\">\r\n    <h1 class=\"welcome-title\">Bienvenido a Jugadon!</h1>\r\n  </div>\r\n\r\n</body>\r\n</html>",
+        "blockName": null,
+        "blockType": "codigo"
+      }
+    ]
+  },
+  {
+    "id": 1,
+    "slug": "como-se-leen-las-cuotas-decimales",
+    "titulo": "Como se leen las cuotas decimales",
+    "contenido": [
+      {
+        "id": "6a78db47f789164e484ddbb4",
+        "blockName": null,
+        "blockType": "contenido",
+        "texto": {
+          "root": {
+            "type": "root",
+            "format": "",
+            "indent": 0,
+            "version": 1,
+            "children": [
+              {
+                "type": "paragraph",
+                "format": "",
+                "indent": 0,
+                "version": 1,
+                "children": [
+                  {
+                    "mode": "normal",
+                    "text": "La cuota decimal expresa cuanto se cobra por cada unidad apostada, incluido el importe original. Una cuota de 2.50 devuelve 2,50 por cada 1 apostado: 1,50 de ganancia mas el 1 que pusiste.",
+                    "type": "text",
+                    "style": "",
+                    "detail": 0,
+                    "format": 0,
+                    "version": 1
+                  }
+                ],
+                "direction": "ltr",
+                "textFormat": 0
+              }
+            ],
+            "direction": "ltr"
+          }
+        }
+      },
+      {
+        "id": "6a78db47f789164e484ddbb5",
+        "tipo": "juego-responsable",
+        "blockName": null,
+        "blockType": "aviso",
+        "texto": {
+          "root": {
+            "type": "root",
+            "format": "",
+            "indent": 0,
+            "version": 1,
+            "children": [
+              {
+                "type": "paragraph",
+                "format": "",
+                "indent": 0,
+                "version": 1,
+                "children": [
+                  {
+                    "mode": "normal",
+                    "text": "Este contenido es informativo. Apostar implica riesgo de perdida: definí un limite antes de empezar y no lo muevas.",
+                    "type": "text",
+                    "style": "",
+                    "detail": 0,
+                    "format": 0,
+                    "version": 1
+                  }
+                ],
+                "direction": "ltr",
+                "textFormat": 0
+              }
+            ],
+            "direction": "ltr"
+          }
+        }
+      },
+      {
+        "id": "6a78db47f789164e484ddbb6",
+        "lenguaje": "js",
+        "archivo": "retorno.js",
+        "altura": 400,
+        "codigo": "const retorno = (importe, cuota) => importe * cuota\nconst ganancia = (importe, cuota) => retorno(importe, cuota) - importe\n\nretorno(1000, 2.5) // 2500\nganancia(1000, 2.5) // 1500",
+        "blockName": null,
+        "blockType": "codigo"
+      },
+      {
+        "id": "6a78db47f789164e484ddbc6",
+        "blockName": null,
+        "columnas": [
+          {
+            "id": "6a78db47f789164e484ddbb7",
+            "encabezado": "Decimal"
+          },
+          {
+            "id": "6a78db47f789164e484ddbb8",
+            "encabezado": "Fraccional"
+          },
+          {
+            "id": "6a78db47f789164e484ddbb9",
+            "encabezado": "Probabilidad implicita"
+          }
+        ],
+        "filas": [
+          {
+            "id": "6a78db47f789164e484ddbbd",
+            "celdas": [
+              {
+                "id": "6a78db47f789164e484ddbba",
+                "valor": "1.50"
+              },
+              {
+                "id": "6a78db47f789164e484ddbbb",
+                "valor": "1/2"
+              },
+              {
+                "id": "6a78db47f789164e484ddbbc",
+                "valor": "66,7%"
+              }
+            ]
+          },
+          {
+            "id": "6a78db47f789164e484ddbc1",
+            "celdas": [
+              {
+                "id": "6a78db47f789164e484ddbbe",
+                "valor": "2.00"
+              },
+              {
+                "id": "6a78db47f789164e484ddbbf",
+                "valor": "1/1"
+              },
+              {
+                "id": "6a78db47f789164e484ddbc0",
+                "valor": "50,0%"
+              }
+            ]
+          },
+          {
+            "id": "6a78db47f789164e484ddbc5",
+            "celdas": [
+              {
+                "id": "6a78db47f789164e484ddbc2",
+                "valor": "3.40"
+              },
+              {
+                "id": "6a78db47f789164e484ddbc3",
+                "valor": "12/5"
+              },
+              {
+                "id": "6a78db47f789164e484ddbc4",
+                "valor": "29,4%"
+              }
+            ]
+          }
+        ],
+        "blockType": "comparativa",
+        "titulo": "Equivalencia entre formatos de cuota"
+      },
+      {
+        "id": "6a78db47f789164e484ddbc9",
+        "blockName": null,
+        "preguntas": [
+          {
+            "id": "6a78db47f789164e484ddbc7",
+            "pregunta": "La probabilidad implicita es la probabilidad real?",
+            "respuesta": "No. Incluye el margen del operador, asi que la suma de las probabilidades implicitas de un evento siempre supera el 100%."
+          },
+          {
+            "id": "6a78db47f789164e484ddbc8",
+            "pregunta": "Que formato de cuota conviene usar?",
+            "respuesta": "El decimal es el mas directo para calcular el retorno, porque ya incluye el importe apostado."
+          }
+        ],
+        "blockType": "faq",
+        "titulo": "Preguntas frecuentes"
+      }
+    ]
+  }
+]
