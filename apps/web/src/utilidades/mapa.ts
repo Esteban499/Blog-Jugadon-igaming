@@ -1,5 +1,12 @@
 import { type Flavor, LIGHT, layers } from '@protomaps/basemaps'
-import type { MapOptions } from 'maplibre-gl'
+import type {
+  DataDrivenPropertyValueSpecification,
+  FilterSpecification,
+  LayerSpecification,
+  MapOptions,
+} from 'maplibre-gl'
+
+import { TIPOS_DE_PUNTO, type TipoDePunto } from './puntos-de-venta'
 
 /**
  * Todo lo que el mapa necesita saber de MapLibre y Protomaps.
@@ -270,6 +277,147 @@ export const estiloDelMapa = ({
     (capa) => !('layout' in capa && capa.layout && 'icon-image' in capa.layout),
   ),
 })
+
+/* ========================================================================= */
+/* LOS PUNTOS: FUENTE Y CAPAS                                                */
+/* ========================================================================= */
+
+/**
+ * Los mil cuatrocientos puntos son una fuente GeoJSON, no mil cuatrocientos
+ * marcadores.
+ *
+ * La version anterior de esta pantalla dibujaba un `<button>` por local y
+ * andaba bien, porque habia catorce. Con el listado entero eso son mil
+ * cuatrocientos nodos del DOM que el navegador tiene que reposicionar en cada
+ * cuadro de un arrastre: el mapa deja de seguir al dedo. Pasados a una fuente,
+ * los dibuja la GPU junto con el resto del mapa, y arrastrar cuesta lo mismo
+ * con catorce que con mil cuatrocientos.
+ *
+ * Lo que se pierde es que el marcador ya no es un elemento de verdad: no entra
+ * en el orden de tabulacion ni lo anuncia el lector de pantalla. **Ese trabajo
+ * pasa entero a la lista de al lado**, que son fichas reales, se recorren con
+ * el teclado y dicen lo mismo que diria el marcador. Es tambien la razon por la
+ * que la lista muestra lo que hay en pantalla y no una pagina arbitraria: si es
+ * el equivalente accesible del mapa, tiene que decir lo mismo que el mapa.
+ */
+export const ID_FUENTE_DE_PUNTOS = 'puntos-de-venta'
+
+export const CAPAS = {
+  puntos: 'puntos-sueltos',
+  elegido: 'punto-elegido',
+} as const
+
+/**
+ * **Sin agrupamiento, a proposito.** La fuente lleva `cluster: false` y no hay
+ * capa de cumulos: cada local es su propio circulo en todos los zooms.
+ *
+ * Lo contrario —juntar los cercanos en una burbuja con el total adentro— es lo
+ * que hace cualquier mapa con esta cantidad de puntos, y es lo que estuvo un
+ * rato aca. Se saco porque cambia lo que la pantalla es: con cumulos, el
+ * encuadre de arranque muestra doce burbujas con numeros y hay que ir abriendo
+ * hasta llegar a un local; sin ellos, se ve de una donde hay locales y donde no,
+ * que es la pregunta con la que alguien entra.
+ *
+ * El costo esta a la vista y se acepta: en el encuadre de pais, los cuatrocientos
+ * de CABA y los seiscientos de Cordoba son dos manchas azules donde no se
+ * distingue uno del otro. La salida es acercar el mapa o usar los filtros, y la
+ * lista de al lado dice cuantos hay ahi aunque el mapa no los separe.
+ *
+ * Lo que **no** cambia es que los puntos siguen siendo una fuente GeoJSON y no
+ * marcadores: eso es lo que hace que arrastrar el mapa cueste lo mismo con
+ * catorce que con mil cuatrocientos, y no tiene nada que ver con agrupar.
+ */
+
+/** El filtro de la capa del elegido cuando no hay ninguno: no matchea nada. */
+export const SIN_ELEGIDO: FilterSpecification = ['==', ['get', 'id'], -1]
+
+/** Y cuando si lo hay. */
+export const filtroDelElegido = (id: number): FilterSpecification => ['==', ['get', 'id'], id]
+
+/**
+ * De que color va cada tipo.
+ *
+ * Se arma recorriendo `TIPOS_DE_PUNTO` y no escribiendo los tres a mano: con
+ * la tabla indexada por tipo, agregar un tipo en `utilidades/puntos-de-venta.ts`
+ * sin darle color aca es un error de compilacion. Escrito a mano, el tipo nuevo
+ * saldria del color de reserva y nadie se enteraria.
+ */
+const TOKEN_POR_TIPO: Record<TipoDePunto, string> = {
+  sala: '--mapa-punto-sala',
+  agencia: '--mapa-punto-agencia',
+  'punto-de-pago': '--mapa-punto-pago',
+}
+
+const colorPorTipo = (): DataDrivenPropertyValueSpecification<string> => {
+  const casos = TIPOS_DE_PUNTO.flatMap((tipo) => [tipo, leerToken(TOKEN_POR_TIPO[tipo])])
+
+  /*
+   * El `as unknown as` no se puede evitar y no esconde nada: MapLibre tipa las
+   * expresiones como tuplas con cada posicion declarada —`['match', entrada,
+   * etiqueta1, valor1, …, reserva]`—, y un arreglo armado con `flatMap` es un
+   * `string[]`, que no encaja en una tupla por mas que en tiempo de ejecucion
+   * sea exactamente lo mismo. La alternativa es escribir los tres casos a mano,
+   * y ahi si se pierde algo: `TOKEN_POR_TIPO` esta indexado por `TipoDePunto`,
+   * asi que un tipo nuevo sin color rompe la compilacion, que es la garantia
+   * que interesa.
+   */
+  return ['match', ['get', 'tipo'], ...casos, leerToken('--mapa-punto-agencia')] as unknown as DataDrivenPropertyValueSpecification<string>
+}
+
+/**
+ * Las dos capas que dibujan los puntos, en el orden en que se apilan.
+ *
+ * Se agregan despues del basemap, y dentro de este arreglo el orden tambien
+ * cuenta: la ultima queda arriba, y el punto elegido tiene que ganarle a todo.
+ *
+ * Es una funcion y no una constante por lo mismo que `saborGoogle`: los colores
+ * salen de `getComputedStyle`, que necesita el documento montado.
+ */
+export const capasDePuntos = (): LayerSpecification[] => {
+  const anillo = leerToken('--mapa-punto-anillo')
+
+  return [
+    /*
+     * El punto crece con el zoom, y el tramo de abajo es el que hace falta
+     * justamente por no agrupar: en el encuadre de pais hay mil cuatrocientos
+     * circulos en pantalla, y con el radio de ciudad serian una sola mancha
+     * solida. A tres pixeles siguen siendo puntos y se alcanza a ver donde se
+     * amontonan y donde no, que es toda la informacion que ese zoom puede dar.
+     *
+     * De zoom 14 para arriba manda otra cosa: que se pueda tocar con el dedo.
+     */
+    {
+      id: CAPAS.puntos,
+      type: 'circle',
+      source: ID_FUENTE_DE_PUNTOS,
+      paint: {
+        'circle-color': colorPorTipo(),
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 5, 14, 8, 17, 11],
+        'circle-stroke-width': 2,
+        'circle-stroke-color': anillo,
+      },
+    },
+
+    /*
+     * El elegido es su propia capa, arriba de todo, con un filtro que no matchea
+     * nada hasta que hay uno. Podria ser un `case` dentro de la capa de puntos,
+     * pero entonces se pintaria en el orden en que vino del servidor: en una
+     * cuadra con tres locales encimados, el naranja terminaria abajo de un azul.
+     */
+    {
+      id: CAPAS.elegido,
+      type: 'circle',
+      source: ID_FUENTE_DE_PUNTOS,
+      filter: SIN_ELEGIDO,
+      paint: {
+        'circle-color': leerToken('--mapa-punto-elegido'),
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 8, 14, 11, 17, 14],
+        'circle-stroke-width': 3,
+        'circle-stroke-color': anillo,
+      },
+    },
+  ]
+}
 
 /* ========================================================================= */
 /* ENLACES Y ENCUADRE                                                        */

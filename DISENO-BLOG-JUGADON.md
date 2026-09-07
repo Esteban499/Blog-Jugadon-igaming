@@ -1,4 +1,4 @@
-# Jugadón — Directrices de Diseño del Blog
+# Jugadon — Directrices de Diseño del Blog
 
 > Derivado de **Brand Guidelines v1.0 — Agosto 2026**.
 > Stack: Next.js + React + Tailwind. Tema: **oscuro**.
@@ -132,7 +132,7 @@ Tres, y con moderación:
 El manual también define un gradiente claro (`#BCC1D3 → #FFFFFF`) reservado a piezas de fondo
 claro; el blog es oscuro y no lo usa.
 
-**El gradiente dorado está reservado al lockup Jugadón VIP.** No aparece en el blog: ni en
+**El gradiente dorado está reservado al lockup Jugadon VIP.** No aparece en el blog: ni en
 botones, ni en badges "premium", ni en texto, ni en bordes.
 
 ---
@@ -231,10 +231,33 @@ hace que una interfaz parezca plantilla.
 
 ### 4.3 Layout
 
-- Contenedor máximo **1200px**; gutter 24px en desktop, 16px en móvil.
+- Contenedor máximo **1700px**; gutter 24px en desktop, 16px en móvil.
 - Columna de lectura **720px**, centrada. Sin sidebar dentro del artículo.
-- Grilla de listado: 1 columna en móvil → 2 desde 768px → 3 desde 1024px.
-- Breakpoints estándar (640 / 768 / 1024 / 1280).
+- Grilla de listado: 1 columna en móvil → 2 desde 768px → 3 desde 1024px → 4 desde 1536px.
+- Breakpoints estándar (640 / 768 / 1024 / 1280 / 1536).
+
+**El contenedor es 1700px y no 1200px.** Fueron 1200 hasta que la vitrina de
+últimos ganadores lo puso a prueba en un monitor ancho: entraban tres columnas y
+media de tarjetas y el resto de la pantalla quedaba en aire. La regla de los
+1200 venía de la medida de línea legible, y esa razón vale para un párrafo pero
+no para una fila de tarjetas — ahí el ancho no cansa la vista, solo decide
+cuánto se ve.
+
+La línea de texto sigue protegida por donde corresponde: por la **columna de
+lectura de 720px**, que es la que acota el cuerpo del artículo y no se movió.
+Son dos límites distintos porque acotan cosas distintas.
+
+**Cómo se aplica esto de acá en adelante:**
+
+- Todo bloque nuevo se maqueta contra el contenedor y queda alineado con el
+  resto. Ninguna pantalla define su propio máximo.
+- Si algo parece necesitar más ancho, se discute mover el número del sistema.
+  **No se agrega una excepción al lado**: una segunda medida de contenedor es
+  justo lo que hace que dos secciones no alineen y que nadie sepa cuál manda.
+- Los anchos de tarjeta se **derivan** del contenedor y de la grilla, no se
+  eligen a ojo: `(1700 − 24×3) / 4 = 407px` la normal, `407×2 + 24 = 838px` la
+  ancha. Es lo que hace que una nota se vea del mismo tamaño en la portada y en
+  el listado.
 
 ---
 

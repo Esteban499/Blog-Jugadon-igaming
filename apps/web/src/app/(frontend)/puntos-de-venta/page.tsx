@@ -29,7 +29,8 @@ export const revalidate = 3600
 export const metadata: Metadata = {
   // La marca la agrega la plantilla de titulo del layout.
   title: 'Puntos de Venta',
-  description: 'Dónde quedan las salas y agencias de Jugadón: mapa, direcciones y horarios.',
+  description:
+    'Dónde quedan las salas, agencias y puntos de pago de Jugadon: mapa, direcciones y horarios.',
 }
 
 interface PuntosDeVentaPageProps {
@@ -60,9 +61,18 @@ export default async function PuntosDeVentaPage({ searchParams }: PuntosDeVentaP
   const { docs } = await payload.find({
     collection: 'puntos-de-venta',
     depth: 1,
-    // El mapa los dibuja todos a la vez: no hay paginacion que pueda partirlos
-    // sin dejar medio pais afuera del encuadre.
-    limit: 500,
+    /*
+     * Todos de una: el mapa los dibuja juntos y no hay paginacion que pueda
+     * partirlos sin dejar medio pais afuera del encuadre. Son mil cuatrocientos
+     * y el tope esta bien arriba para que agregar una provincia no los empiece
+     * a cortar en silencio; lo que evita que la respuesta crezca sin control es
+     * que la coleccion es un directorio cerrado —los locales de la marca—, no
+     * contenido que se publique todos los dias.
+     *
+     * Del lado del cliente eso no se traduce en mil cuatrocientas fichas: el
+     * mapa agrupa los marcadores y la lista solo dibuja lo que hay en pantalla.
+     */
+    limit: 2000,
     sort: ['provincia', 'localidad', 'nombre'],
     where,
   })
@@ -78,7 +88,7 @@ export default async function PuntosDeVentaPage({ searchParams }: PuntosDeVentaP
   const { docs: paraElFiltro } = await payload.find({
     collection: 'puntos-de-venta',
     depth: 0,
-    limit: 500,
+    limit: 2000,
     // Solo interesa la columna `provincia`, pero la Local API no proyecta
     // columnas sueltas; `depth: 0` al menos evita traer las relaciones.
     where: { and: [{ activo: { equals: true } }, ...(tipo ? [{ tipo: { equals: tipo } }] : [])] },
@@ -116,7 +126,7 @@ export default async function PuntosDeVentaPage({ searchParams }: PuntosDeVentaP
 
   return (
     <PlantillaDeListado
-      bajada="Encontrá la sala o la agencia más cercana. Tocá un punto del mapa para ver su dirección, su horario y cómo llegar."
+      bajada="Encontrá la sala, la agencia o el punto de pago más cercano. Tocá un punto del mapa para ver su dirección, su horario y cómo llegar."
       filtros={
         <FiltrosDePuntosDeVenta provincias={provinciasDisponibles} seleccion={{ provincia, tipo }} />
       }

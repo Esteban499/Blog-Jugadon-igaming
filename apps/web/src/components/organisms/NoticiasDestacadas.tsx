@@ -54,7 +54,7 @@ export function NoticiasDestacadas({ entradas, hrefVerTodas }: NoticiasDestacada
                */
               publicadoEn={entrada.publicadoEn}
               sizes={
-                destacada ? '(min-width: 640px) 592px, 92vw' : '(min-width: 640px) 384px, 82vw'
+                destacada ? '(min-width: 640px) 838px, 92vw' : '(min-width: 640px) 407px, 82vw'
               }
               slug={entrada.slug ?? ''}
               titulo={entrada.titulo}

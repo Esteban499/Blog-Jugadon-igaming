@@ -27,7 +27,7 @@ export interface GrillaDeNoticiasProps {
 
 export function GrillaDeNoticias({ entradas, prioritarias = 0 }: GrillaDeNoticiasProps) {
   return (
-    <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
       {entradas.map((entrada, indice) => {
         const portada = relacion<Media>(entrada.portada)
         const categoria = relacion<Category>(entrada.categoria)

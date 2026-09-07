@@ -47,7 +47,7 @@ export function TarjetaNoticia({
   portadaUrl,
   prioridad = false,
   publicadoEn,
-  sizes = '(min-width: 1024px) 384px, (min-width: 768px) 50vw, 100vw',
+  sizes = '(min-width: 1536px) 407px, (min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw',
   slug,
   titulo,
 }: TarjetaNoticiaProps) {

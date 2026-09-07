@@ -13,13 +13,13 @@ const revalidarRutas: CollectionAfterChangeHook = async ({ doc }) => {
 }
 
 /**
- * Las salas y agencias de Jugadon, con su ubicacion en el mapa.
+ * Las salas, agencias y puntos de pago de Jugadon, con su ubicacion en el mapa.
  *
- * Una sola coleccion para los dos, distinguidos por `tipo`. Comparten todos los
- * campos —direccion, horario, telefono— y la unica diferencia real es como se
- * llaman y con que color salen en el mapa; con dos colecciones, cada campo
- * nuevo habria que agregarlo dos veces y la pantalla publica tendria que
- * consultar y ordenar dos listas para dibujar una sola.
+ * Una sola coleccion para los tres, distinguidos por `tipo`. Comparten todos
+ * los campos —direccion, horario, telefono— y la unica diferencia real es como
+ * se llaman y con que color salen en el mapa; con tres colecciones, cada campo
+ * nuevo habria que agregarlo tres veces y la pantalla publica tendria que
+ * consultar y ordenar tres listas para dibujar una sola.
  *
  * No es contenido editorial: no tiene cuerpo, ni autor, ni borradores. Es un
  * directorio, y lo que se edita de una sala es un dato puntual —cambio el
@@ -38,7 +38,7 @@ export const PuntosDeVenta: CollectionConfig = {
     defaultColumns: ['nombre', 'tipo', 'provincia', 'localidad', 'activo'],
     group: 'Puntos de venta',
     description:
-      'Las salas y agencias que se muestran en el mapa del sitio. Cada una necesita su par de coordenadas para aparecer.',
+      'Las salas, agencias y puntos de pago que se muestran en el mapa del sitio. Cada uno necesita su par de coordenadas para aparecer.',
   },
   access: {
     read: () => true,
@@ -70,7 +70,7 @@ export const PuntosDeVenta: CollectionConfig = {
       options: opcionesDeTipoDePunto,
       admin: {
         description:
-          'La sala es el local propio; la agencia, el comercio adherido. Decide el color del marcador y es uno de los dos filtros del mapa.',
+          'La sala es el local propio; la agencia, el comercio adherido de la red de Jugadon; el punto de pago, el comercio donde solo se carga y se retira, sin juego. Decide el color del marcador y es uno de los dos filtros del mapa.',
       },
     },
 
@@ -188,6 +188,35 @@ export const PuntosDeVenta: CollectionConfig = {
     /* ------------------------------------------------------------------ */
     /* Sidebar                                                            */
     /* ------------------------------------------------------------------ */
+    /**
+     * El identificador que trae la planilla de origen, no uno nuestro.
+     *
+     * Existe solo para que `pnpm importar-puntos` se pueda correr de nuevo
+     * sobre una planilla actualizada sin duplicar nada: el script busca por
+     * este campo y actualiza en lugar de crear. Sin el, la unica llave seria
+     * "mismo nombre y misma localidad", que en un listado con veintitres
+     * agencias llamadas por su propio codigo y cuatro "La Suerte" distintas
+     * fusiona locales que no tienen nada que ver.
+     *
+     * Lleva prefijo de origen —`agencias:687-000`, `pagos:5149300`— porque los
+     * dos listados numeran por su cuenta y nada garantiza que no choquen.
+     *
+     * Opcional a proposito: un local cargado a mano desde el panel no tiene
+     * codigo de planilla y no deberia necesitar uno inventado.
+     */
+    {
+      name: 'codigoExterno',
+      type: 'text',
+      label: 'Código de origen',
+      unique: true,
+      index: true,
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        description:
+          'Lo pone la importación. Es lo que permite volver a importar la planilla sin duplicar el local.',
+      },
+    },
     {
       name: 'activo',
       type: 'checkbox',

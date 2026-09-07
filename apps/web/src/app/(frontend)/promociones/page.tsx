@@ -3,7 +3,11 @@ import { getPayload, type Where } from 'payload'
 import config from '@payload-config'
 
 import { EstadoVacio } from '@/components/molecules'
-import { FiltrosDePromociones, GrillaDePromociones } from '@/components/organisms'
+import {
+  BannersDePromociones,
+  FiltrosDePromociones,
+  GrillaDePromociones,
+} from '@/components/organisms'
 import { PlantillaDeListado } from '@/components/templates'
 import {
   TIPOS_DE_PROMOCION,
@@ -11,6 +15,7 @@ import {
   VERTICALES,
   type Vertical,
 } from '@/scrapers/tipos'
+import { idDeRelacion } from '@/utilidades/payload'
 import { PLATAFORMA_POR_DEFECTO } from '@/utilidades/rutas'
 
 /**
@@ -28,9 +33,6 @@ export const metadata: Metadata = {
   description: 'Bonos de bienvenida, recargas y promociones vigentes de las plataformas.',
 }
 
-const esTipo = (valor?: string): valor is TipoDePromocion =>
-  typeof valor === 'string' && (TIPOS_DE_PROMOCION as readonly string[]).includes(valor)
-
 /**
  * El filtro por vertical entra por la URL, asi que se valida antes de llegar a
  * la consulta. No es solo higiene: `verticales` es un enum en Postgres, y un
@@ -38,6 +40,9 @@ const esTipo = (valor?: string): valor is TipoDePromocion =>
  * cero resultados. Con la guarda, un `?vertical=cualquiera` simplemente no
  * filtra.
  */
+const esTipo = (valor?: string): valor is TipoDePromocion =>
+  typeof valor === 'string' && (TIPOS_DE_PROMOCION as readonly string[]).includes(valor)
+
 const esVertical = (valor?: string): valor is Vertical =>
   typeof valor === 'string' && (VERTICALES as readonly string[]).includes(valor)
 
@@ -49,12 +54,33 @@ export default async function PromocionesPage({ searchParams }: PromocionesPageP
   const { plataforma: slugPlataforma, tipo: tipoCrudo, vertical: verticalCrudo } = await searchParams
   const payload = await getPayload({ config })
 
-  const { docs: plataformas } = await payload.find({
-    collection: 'plataformas',
-    depth: 0,
-    limit: 50,
-    sort: 'nombre',
-  })
+  /*
+   * En paralelo: las dos consultas son independientes y las dos hacen falta
+   * para armar el `where` de la grilla, asi que encadenarlas seria un viaje a
+   * la base de mas antes de poder empezar a buscar promociones.
+   *
+   * Los banners vienen todos y se filtran por plataforma mas abajo, en memoria:
+   * son un punado, y preguntarle a la base por "los que no tienen ninguna
+   * plataforma puesta o tienen esta" cuesta un `exists` sobre una relacion
+   * `hasMany`, que es mas condicion de la que este volumen justifica.
+   */
+  const [{ docs: plataformas }, { docs: todosLosBanners }] = await Promise.all([
+    payload.find({
+      collection: 'plataformas',
+      depth: 0,
+      limit: 50,
+      sort: 'nombre',
+    }),
+    payload.find({
+      collection: 'banners',
+      // Uno, para que `imagenEscritorio` e `imagenTelefono` lleguen con su URL
+      // y su medida: sin eso no se puede armar el `srcSet`.
+      depth: 1,
+      limit: 50,
+      sort: 'orden',
+      where: { activo: { equals: true } },
+    }),
+  ])
 
   /**
    * Siempre hay una plataforma puesta. Las cinco jurisdicciones publican casi
@@ -71,6 +97,31 @@ export default async function PromocionesPage({ searchParams }: PromocionesPageP
 
   const tipo = esTipo(tipoCrudo) ? tipoCrudo : undefined
   const vertical = esVertical(verticalCrudo) ? verticalCrudo : undefined
+
+  /*
+   * Un banner sin plataformas puestas va en todas. Es lo que evita cargar cinco
+   * veces la misma pieza: hoy cada campania tiene una version generica y otra
+   * para Santa Fe, que no tiene casino y por eso su arte dice otra cosa.
+   */
+  const banners = todosLosBanners.filter((banner) => {
+    const suyas = (banner.plataformas ?? [])
+      .map(idDeRelacion)
+      .filter((id): id is number => id !== undefined)
+
+    return suyas.length === 0 || (elegida ? suyas.includes(elegida.id) : true)
+  })
+
+  /*
+   * Las promociones que los banners de esta pantalla ya estan mostrando. Salen
+   * de la grilla para no decir dos veces lo mismo, y salen solo si su banner se
+   * ve: apagar el banner desde el panel devuelve su promocion al listado sin
+   * tocar codigo.
+   */
+  const cubiertasPorLosBanners = banners.flatMap((banner) =>
+    (banner.promocionesQueCubre ?? [])
+      .map(idDeRelacion)
+      .filter((id): id is number => id !== undefined),
+  )
 
   /**
    * Tres condiciones, y las tres importan:
@@ -93,6 +144,10 @@ export default async function PromocionesPage({ searchParams }: PromocionesPageP
           { vigenciaHasta: { greater_than: new Date().toISOString() } },
         ],
       },
+      // Lo que ya esta dibujado en los banners de arriba no se repite abajo.
+      ...(cubiertasPorLosBanners.length > 0
+        ? [{ id: { not_in: cubiertasPorLosBanners } }]
+        : []),
       ...(elegida ? [{ plataforma: { equals: elegida.id } }] : []),
       ...(tipo ? [{ tipo: { equals: tipo } }] : []),
       // `in` sobre un `hasMany` es "alguno de sus verticales es este". Las
@@ -111,6 +166,7 @@ export default async function PromocionesPage({ searchParams }: PromocionesPageP
     where,
   })
 
+
   return (
     <PlantillaDeListado
       filtros={
@@ -119,6 +175,7 @@ export default async function PromocionesPage({ searchParams }: PromocionesPageP
           seleccion={{ plataforma: elegida?.slug ?? undefined, tipo, vertical }}
         />
       }
+      sobreElTitulo={<BannersDePromociones banners={banners} />}
       titulo="Promociones y Bonos"
     >
       {promociones.length === 0 ? (

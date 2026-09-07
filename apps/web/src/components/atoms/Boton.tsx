@@ -11,14 +11,14 @@ import type { ComponentProps, ReactNode } from 'react'
 
 export type VarianteDeBoton = 'primaria' | 'secundaria' | 'terciaria'
 
-export type TamanoDeBoton = 'normal' | 'grande'
+export type TamanoDeBoton = 'compacto' | 'normal' | 'grande'
 
 /*
  * `no-underline` no es decorativo: dentro del articulo, `.prosa a` subraya
  * todo enlace, y un boton subrayado deja de leerse como boton.
  */
 const BASE =
-  'inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full font-util text-boton whitespace-nowrap uppercase no-underline transition-colors duration-150 ease-marca'
+  'inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full font-util whitespace-nowrap uppercase no-underline transition-colors duration-150 ease-marca'
 
 /** Deshabilitado: 40% de opacidad y sin respuesta al hover. */
 const APAGADO =
@@ -36,9 +36,21 @@ const VARIANTES: Record<VarianteDeBoton, string> = {
   terciaria: 'border border-contorno text-parrafo hover:border-accion hover:text-tinta',
 }
 
+/*
+ * El cuerpo de letra vive aca y no en `BASE` porque `compacto` lo cambia: dos
+ * clases de `text-*` sobre el mismo elemento las resuelve el orden de la hoja
+ * de Tailwind, no el del atributo, y la que quedara valiendo seria una loteria.
+ *
+ * `compacto` no afloja los 44px de alto —ese numero es el piso de area de
+ * toque (§11), no una preferencia de escala—: encoge el padding lateral y la
+ * etiqueta. Existe por un caso concreto y unico: la barra de telefono, donde el
+ * logo, el boton de menu y los dos de cuenta tienen que entrar en 328px de
+ * ancho util. En cualquier otro lado el tamano correcto sigue siendo `normal`.
+ */
 const TAMANOS: Record<TamanoDeBoton, string> = {
-  normal: 'h-11 px-7',
-  grande: 'h-12 px-7',
+  compacto: 'h-11 px-3.5 text-tag',
+  normal: 'h-11 px-7 text-boton',
+  grande: 'h-12 px-7 text-boton',
 }
 
 /** Lo que comparten las dos formas del boton, sea `<a>`, `<Link>` o `<button>`. */

@@ -6,8 +6,10 @@
  * documentos de Payload (`Post`, `Promocion`, `Category`) a las props de las
  * moleculas, y aca vive el estado local de lo que se opera con el mouse.
  *
- * Cinco llevan `'use client'` —`Navbar`, `CarruselNoticias`, `VideoHero`,
- * `PanelDeFiltros` y `MapaDePuntosDeVenta`— y son los unicos del sitio junto
+ * Once llevan `'use client'` —`Navbar`, `CarruselNoticias`, `VideoHero`,
+ * `PanelDeFiltros`, `MapaDePuntosDeVenta`, `UltimosGanadores`,
+ * `CarruselDeGanadores`, `CarruselDeBanners`, `ModalDePlataformas`,
+ * `CarruselDeShorts` y `ReproductorDeShort`— y son los unicos del sitio junto
  * con el boton del panel. Todos los demas se renderizan en el servidor.
  *
  * REGLA DEL BARRIL: este index lo consumen rutas y plantillas, que son Server
@@ -19,6 +21,15 @@
  * =========================================================================
  */
 
+export { BannersDePromociones, type BannersDePromocionesProps } from './BannersDePromociones'
+export {
+  CarruselDeBanners,
+  type CarruselDeBannersProps,
+  type DiapositivaDeBanner,
+} from './CarruselDeBanners'
+export { CarruselDeGanadores, type CarruselDeGanadoresProps } from './CarruselDeGanadores'
+export { CarruselDeProveedores } from './CarruselDeProveedores'
+export { CarruselDeShorts, type CarruselDeShortsProps } from './CarruselDeShorts'
 export { CarruselNoticias, type CarruselNoticiasProps } from './CarruselNoticias'
 export { CierreDeArticulo, type CierreDeArticuloProps } from './CierreDeArticulo'
 export { CierreDePromocion, type CierreDePromocionProps } from './CierreDePromocion'
@@ -45,10 +56,18 @@ export {
   type MapaDePuntosDeVentaProps,
   type PuntoEnMapa,
 } from './MapaDePuntosDeVenta'
+export {
+  ModalDePlataformas,
+  type ModalDePlataformasProps,
+  type MotivoDePlataformas,
+} from './ModalDePlataformas'
 export { Navbar } from './Navbar'
 export { NoEncontrada } from './NoEncontrada'
 export { NoticiasDestacadas, type NoticiasDestacadasProps } from './NoticiasDestacadas'
 export { type GrupoDeFiltros, PanelDeFiltros, type PanelDeFiltrosProps } from './PanelDeFiltros'
+export { ReproductorDeShort, type ReproductorDeShortProps } from './ReproductorDeShort'
+export { ShortsDeYoutube } from './ShortsDeYoutube'
+export { UltimosGanadores } from './UltimosGanadores'
 export { VideoHero } from './VideoHero'
 
 export { SECCIONES, type Seccion } from './secciones'

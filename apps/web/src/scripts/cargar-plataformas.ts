@@ -17,11 +17,11 @@ import config from '@payload-config'
  * `PROXY_URL` que cada sitio declara en su runtime config.
  */
 const PLATAFORMAS = [
-  { slug: 'santafe', nombre: 'Jugadón Santa Fe', host: 'santafe', api: 'proxysantafe' },
-  { slug: 'sanluis', nombre: 'Jugadón San Luis', host: 'sanluis', api: 'proxy2' },
-  { slug: 'cordoba', nombre: 'Jugadón Córdoba', host: 'cordoba', api: 'proxycordoba' },
-  { slug: 'caba', nombre: 'Jugadón CABA', host: 'caba', api: 'proxycaba' },
-  { slug: 'larioja', nombre: 'Jugadón La Rioja', host: 'larioja', api: 'proxylarioja' },
+  { slug: 'santafe', nombre: 'Jugadon Santa Fe', host: 'santafe', api: 'proxysantafe' },
+  { slug: 'sanluis', nombre: 'Jugadon San Luis', host: 'sanluis', api: 'proxy2' },
+  { slug: 'cordoba', nombre: 'Jugadon Córdoba', host: 'cordoba', api: 'proxycordoba' },
+  { slug: 'caba', nombre: 'Jugadon CABA', host: 'caba', api: 'proxycaba' },
+  { slug: 'larioja', nombre: 'Jugadon La Rioja', host: 'larioja', api: 'proxylarioja' },
 ] as const
 
 const cargar = async () => {

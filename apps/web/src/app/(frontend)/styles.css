@@ -31,7 +31,7 @@
 
 /*
  * =========================================================================
- * SISTEMA DE DISEÑO — Jugadón
+ * SISTEMA DE DISEÑO — Jugadon
  *
  * Todos los valores salen de DISENO-BLOG-JUGADON.md y viven una sola vez,
  * aca. Ningun componente escribe un hex ni un pixel a mano: si un componente
@@ -208,20 +208,45 @@
   /* ----------------------------------------------------------------- */
   /* LAYOUT (§4.3)                                                     */
   /* ----------------------------------------------------------------- */
-  --container-sitio: 1200px;
+  /*
+   * EL ANCHO DEL SITIO. Todo lo demas de este bloque se deriva de aca.
+   *
+   * Fueron 1200px hasta que la vitrina de ultimos ganadores mostro el problema
+   * en un monitor ancho: a 1200 entraban tres columnas y media de premios y el
+   * resto de la pantalla quedaba en aire. La regla de los 1200 venia de la
+   * medida de linea legible, y esa razon vale para un parrafo pero no para una
+   * fila de tarjetas: ahi el ancho no cansa la vista, solo decide cuanto se ve.
+   *
+   * La linea de texto sigue protegida, pero por donde corresponde: por
+   * `--container-lectura`, que es lo que acota el cuerpo del articulo y NO se
+   * movio. Este numero acota otra cosa —cuanto ocupa la pagina— y por eso
+   * pueden ser distintos.
+   *
+   * PARA LO QUE VENGA: este es el ancho al que se maqueta. Un bloque nuevo usa
+   * `contenedor` y con eso queda alineado con todo el resto; ninguna pantalla
+   * define su propio maximo. Si alguna vez algo necesita mas, se discute mover
+   * este numero, no se agrega una excepcion al lado.
+   */
+  --container-sitio: 1700px;
   --container-lectura: 720px;
 
   /*
    * Los dos anchos de tarjeta del carrusel salen de la grilla de listado, no
-   * de un numero elegido a ojo: la normal mide una columna de la grilla de
-   * tres, y la ancha, dos columnas mas el gap. Es lo que hace que una nota se
+   * de un numero elegido a ojo: la normal mide una columna de la grilla mas
+   * ancha, y la ancha, dos columnas mas el gap. Es lo que hace que una nota se
    * vea del mismo tamano en la portada y en el listado.
    *
-   *   normal = (1200 - 24*2) / 3          = 384px
-   *   ancha  = 384 * 2 + 24               = 592px
+   *   normal = (1700 - 24*3) / 4          = 407px
+   *   ancha  = 407 * 2 + 24               = 838px
+   *
+   * La cuenta es sobre CUATRO columnas y no tres: al ensanchar el sitio a 1700
+   * la grilla suma una columna en pantallas grandes, asi que la tarjeta queda
+   * en 407px —casi los 384 de antes— y el ancho de mas se gasta en mostrar mas
+   * notas, no en agrandar cada una. Ver `GrillaDeNoticias`.
    */
-  --container-card: 24rem; /* 384px */
-  --container-card-ancha: 37rem; /* 592px */
+  --container-card: 25.4375rem; /* 407px */
+  --container-card-ancha: 52.375rem; /* 838px */
+
 
   /* ----------------------------------------------------------------- */
   /* MOVIMIENTO (§6)                                                   */
@@ -443,6 +468,113 @@
     transition:
       opacity 400ms var(--ease-marca),
       transform 400ms var(--ease-marca);
+  }
+
+  /* ----------------------------------------------------------------- */
+  /* MARQUESINA DE LOGOS (§6)                                          */
+  /*                                                                   */
+  /* La cinta infinita de proveedores de la portada. Es CSS puro: la    */
+  /* pista se duplica en el markup y se desplaza exactamente el ancho   */
+  /* de un grupo, asi que al terminar el ciclo la copia esta parada     */
+  /* justo donde arrancaba el original y el corte no se ve. Por eso el  */
+  /* recorrido es `-100%` de UN grupo y no `-50%` del total: el `-50%`  */
+  /* deja siempre medio hueco de desfasaje, que es el salto tipico de   */
+  /* estas cintas.                                                     */
+  /*                                                                   */
+  /* Que sea CSS puro es la razon de que `CarruselDeProveedores` pueda  */
+  /* ser Server Component y la home siga teniendo un solo archivo       */
+  /* cliente (ver `organisms/index.ts`).                               */
+  /* ----------------------------------------------------------------- */
+
+  .marquesina {
+    /* Cuanto se desvanece la cinta contra cada borde de la ventana. Es
+     * lo que evita que un logo aparezca cortado de golpe. */
+    --desvanecido: 48px;
+
+    display: flex;
+    overflow: hidden;
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--desvanecido),
+      #000 calc(100% - var(--desvanecido)),
+      transparent 100%
+    );
+  }
+
+  .marquesina-grupo {
+    /* Separacion entre logos. Vive aca y no en el markup porque el mismo
+     * numero tiene que ser tambien la sangria final del grupo: sin ese
+     * `padding` el ultimo logo quedaria pegado al primero de la copia. */
+    --paso: 32px;
+
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    /* Solo entra en juego si algun dia la lista es tan corta que no llena
+     * la ventana: reparte los logos en vez de dejarlos amontonados a la
+     * izquierda con un hueco que delataria el ciclo. */
+    justify-content: space-around;
+    min-width: 100%;
+    gap: var(--paso);
+    padding-inline-end: var(--paso);
+    animation: marquesina 60s linear infinite;
+  }
+
+  /*
+   * Pausa al pasar el mouse o al entrar con el teclado. Es el "mecanismo
+   * para detener" que pide el criterio de contenido en movimiento: la
+   * alternativa —un boton de pausa— obligaria a que esto fuera cliente.
+   */
+  .marquesina:hover .marquesina-grupo,
+  .marquesina:focus-within .marquesina-grupo {
+    animation-play-state: paused;
+  }
+
+  @keyframes marquesina {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+
+  @media (width >= 768px) {
+    .marquesina {
+      --desvanecido: 120px;
+    }
+
+    .marquesina-grupo {
+      --paso: 56px;
+    }
+  }
+
+  /*
+   * Sin movimiento la cinta se queda quieta y se recorre a mano. La regla
+   * global de `prefers-reduced-motion` no alcanza sola: al recortar la
+   * duracion a 0.01ms la animacion SALTA a su ultimo fotograma y el grupo
+   * se iria entero fuera de la vista. Apagar el nombre de la animacion es
+   * lo unico que la neutraliza de verdad.
+   *
+   * La copia se esconde —seria una lista repetida— y la cinta pasa a tener
+   * barra de desplazamiento: sin ella, los logos del final no habria forma
+   * de verlos.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .marquesina {
+      overflow-x: auto;
+      /* La barra que aparece es del navegador y sale en su gris de fabrica:
+       * traida al contorno del sistema deja de ser una linea clara cruzando
+       * el fondo azul. */
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-contorno) transparent;
+    }
+
+    .marquesina-grupo {
+      animation: none;
+    }
+
+    .marquesina-grupo[aria-hidden='true'] {
+      display: none;
+    }
   }
 
   /* ----------------------------------------------------------------- */
@@ -814,19 +946,38 @@
     --mapa-rotulo-tenue: #80868b;
     --mapa-rotulo-agua: #4c7fb0;
     --mapa-halo: #ffffff;
+
+    /* --- Marcadores --- */
+
+    /*
+     * La excepcion de la excepcion: el basemap va en la paleta de Google, pero
+     * los marcadores siguen siendo de la marca. Son alias de los colores del
+     * sistema y no valores nuevos —un color, un solo lugar—; viven aca abajo
+     * porque el mapa los necesita como tokens sueltos: MapLibre pinta sobre un
+     * canvas y no entiende clases, asi que el componente los lee de aca con
+     * `getComputedStyle` y se los pasa a las capas.
+     *
+     * Tres pesos del mismo azul, del mas oscuro al mas claro, y en ese orden
+     * por algo: la sala es el local propio y es lo que menos hay; el punto de
+     * pago es el mas claro porque son mil doscientos y en CABA tapan todo lo
+     * demas. El naranja no entra en la escala: es el punto elegido, el unico
+     * elemento que esta respondiendo a algo que hizo quien mira (§2.3.3).
+     */
+    --mapa-punto-sala: var(--color-fondo);
+    --mapa-punto-agencia: var(--color-marca);
+    --mapa-punto-pago: var(--color-enlace);
+    --mapa-punto-elegido: var(--color-accion);
+
+    /*
+     * El anillo blanco es lo que despega un circulo de color de una calle
+     * blanca cuando los dos son igual de claros. Antes lo hacia una sombra CSS
+     * sobre un `<button>`; sobre canvas es el `circle-stroke` de la capa.
+     */
+    --mapa-punto-anillo: var(--mapa-halo);
   }
 }
 
 @layer components {
-  /*
-   * El marcador. Relleno de marca, anillo blanco y una sombra minima: la
-   * sombra no es decorativa, es lo que despega un circulo de color de una
-   * calle blanca cuando los dos son igual de claros.
-   */
-  .marcador-mapa {
-    box-shadow: 0 1px 3px rgba(60, 64, 67, 0.35);
-  }
-
   .maplibregl-ctrl-attrib {
     background-color: color-mix(in srgb, var(--mapa-calle) 85%, transparent);
     color: var(--mapa-rotulo-suave);

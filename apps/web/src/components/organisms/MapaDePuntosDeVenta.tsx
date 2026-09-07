@@ -1,8 +1,14 @@
 'use client'
 
-import { addProtocol, LngLatBounds, Map as MapaMapLibre, Marker } from 'maplibre-gl'
+import {
+  addProtocol,
+  type GeoJSONSource,
+  LngLatBounds,
+  Map as MapaMapLibre,
+  type MapLayerMouseEvent,
+} from 'maplibre-gl'
 import { Protocol } from 'pmtiles'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 /*
  * La hoja de estilos de MapLibre NO se importa aca: entra desde `styles.css`,
@@ -19,44 +25,65 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  */
 import { AvisoEnLinea } from '@/components/molecules/AvisoEnLinea'
 import { TarjetaPuntoDeVenta } from '@/components/molecules/TarjetaPuntoDeVenta'
-import { ENCUADRE_ARGENTINA, estiloDelMapa, urlDeComoLlegar } from '@/utilidades/mapa'
+import {
+  CAPAS,
+  capasDePuntos,
+  ENCUADRE_ARGENTINA,
+  estiloDelMapa,
+  filtroDelElegido,
+  ID_FUENTE_DE_PUNTOS,
+  SIN_ELEGIDO,
+  urlDeComoLlegar,
+} from '@/utilidades/mapa'
 import type { TipoDePunto } from '@/utilidades/puntos-de-venta'
 
 /**
- * El mapa de salas y agencias, con su lista al costado.
+ * El mapa de salas, agencias y puntos de pago, con su lista al costado.
  *
  * Las dos mitades son una sola pieza y por eso viven en un solo componente:
- * comparten el punto seleccionado. Tocar un marcador resalta su ficha en la
- * lista y la trae a la vista; tocar una ficha centra el mapa en su marcador. Con
- * el mapa y la lista separados, ese estado tendria que subir a la pagina, que es
- * un Server Component y no puede tenerlo.
+ * comparten el punto seleccionado y el encuadre. Tocar un marcador resalta su
+ * ficha en la lista y la trae a la vista; tocar una ficha centra el mapa en su
+ * marcador; y mover el mapa cambia la lista, porque **la lista es lo que hay
+ * en pantalla**.
  *
  * **MapLibre sobre un `.pmtiles` propio.** El mapa entero —geometria y rotulos—
  * sale de un solo archivo en el bucket del proyecto, que MapLibre lee por rangos
  * HTTP: pide los pedazos del pais que estan en pantalla y nada mas. Sin clave,
  * sin cuota y sin factura por visita.
  *
- * **Los marcadores son DOM, no dibujos.** Es la diferencia grande contra la
- * version con Google, donde el pin era un path SVG con el color pasado a mano y
- * vivia dentro de un canvas. Aca cada marcador es un `<button>` de verdad: lleva
- * clases del sistema, entra en el orden de tabulacion y lo anuncia el lector de
- * pantalla. El circulo es el de la ficha de poker del logotipo (§1), que es el
- * unico ornamento del sistema y justo la forma que pedia un marcador.
+ * **Los puntos son una fuente, no marcadores.** Es el cambio grande contra la
+ * version anterior, y esta explicado entero en `utilidades/mapa.ts`: con mil
+ * cuatrocientos locales, un `<button>` por local es un arrastre que no sigue al
+ * dedo. Ahora los dibuja la GPU.
+ *
+ * **Y no se agrupan.** Cada local es su propio circulo en todos los zooms, sin
+ * burbujas con el total adentro. El porque —y lo que cuesta— esta arriba de
+ * `ID_FUENTE_DE_PUNTOS` en `utilidades/mapa.ts`. Para este archivo lo que
+ * importa es la consecuencia: no hay que abrir nada para llegar a un local, y
+ * por lo tanto no hay estado de "cumulo abierto" ni un zoom minimo al que haya
+ * que llevar el mapa para que un punto exista.
+ *
+ * **La lista muestra lo que se ve, ordenado por cercania al centro.** No es una
+ * comodidad: es lo que hace que la pantalla siga teniendo sentido con mil
+ * cuatrocientos puntos. Una lista completa serian mil cuatrocientas fichas que
+ * nadie va a recorrer, y la primera —la que se lee— seria la que quedo primera
+ * en el orden alfabetico de la base, que no tiene ninguna relacion con donde
+ * esta parado quien mira. Es ademas el equivalente accesible del mapa: los
+ * circulos del canvas no los anuncia el lector de pantalla, las fichas si.
  *
  * **El basemap va en la paleta de Google Maps, no en la del sitio.** Es una
  * excepcion al manual, decidida a proposito y documentada en el bloque MAPA de
  * `styles.css`: la pantalla existe para encontrar un local y salir, y un mapa
  * que se parece al que la persona ya usa todos los dias se entiende sin mirarlo
  * dos veces. Los marcadores son la excepcion de la excepcion y siguen siendo de
- * la marca; lo unico que les cambio es que ahora van rellenos y con anillo
- * blanco, que es lo que se lee sobre tierra clara.
+ * la marca.
  */
 
 export interface PuntoEnMapa {
   id: number
   nombre: string
   tipo: TipoDePunto
-  /** "Sala" o "Agencia", ya traducido por la pagina. */
+  /** "Sala", "Agencia" o "Punto de pago", ya traducido por la pagina. */
   etiquetaDeTipo: string
   direccion: string
   localidad: string
@@ -80,32 +107,16 @@ export interface MapaDePuntosDeVentaProps {
   urlDeGlifos?: string
 }
 
-/*
- * Las clases de los marcadores, escritas enteras y no armadas por pedazos.
+/**
+ * Cuantas fichas se dibujan de las que hay en pantalla.
  *
- * Tailwind encuentra las clases leyendo el codigo como texto: una clase armada
- * con template string —`border-${color}`— no existe en el CSS compilado. Por eso
- * cada variante esta escrita completa, aunque se repitan pedazos.
+ * Es un tope de dibujado, no de busqueda: con el mapa lejos, en el encuadre
+ * entran seiscientos locales y renderizar seiscientas fichas cuesta lo mismo
+ * que renderizar mil cuatrocientas. Sesenta es la cantidad que llena varias
+ * pantallas de scroll —o sea, mas de lo que alguien recorre— sin costar nada.
+ * Cuando el tope corta, la pantalla lo dice y la salida es acercar el mapa.
  */
-const CLASES_DE_MARCADOR =
-  'marcador-mapa block cursor-pointer rounded-full border-2 border-tinta transition-all duration-150 ease-marca'
-
-const CLASES_POR_TIPO: Record<TipoDePunto, string> = {
-  /*
-   * Relleno de color con anillo blanco, y no al reves: sobre la tierra clara
-   * del mapa un circulo hueco de borde blanco directamente no existe.
-   *
-   * Las salas en el azul institucional y las agencias en el de marca: son dos
-   * pesos distintos del mismo azul, que es lo que distingue sin meter un color
-   * nuevo en la pantalla. El naranja queda para el punto seleccionado, que es
-   * el unico elemento que esta respondiendo a algo que hizo quien mira
-   * (§2.3.3), y por eso ninguno de los otros dos puede usarlo.
-   */
-  sala: 'size-5 bg-fondo',
-  agencia: 'size-5 bg-marca',
-}
-
-const CLASES_SELECCIONADO = 'size-7 bg-accion'
+const TOPE_DE_LISTA = 60
 
 type EstadoDelMapa = 'cargando' | 'listo' | 'error'
 
@@ -136,6 +147,25 @@ const registrarProtocolo = () => {
   protocoloRegistrado = true
 }
 
+/**
+ * Cuan lejos del centro de la pantalla cae un punto, para ordenar la lista.
+ *
+ * Sin raiz cuadrada porque solo se usa para comparar, y con los grados de
+ * longitud encogidos por el coseno de la latitud: en Argentina un grado de
+ * longitud mide un 83% de lo que mide uno de latitud, y sin corregirlo la lista
+ * de una ciudad ancha sale ordenada de costado.
+ */
+const cercaniaAlCentro = (
+  punto: PuntoEnMapa,
+  centroLng: number,
+  centroLat: number,
+  escalaLng: number,
+): number => {
+  const dx = (punto.longitud - centroLng) * escalaLng
+  const dy = punto.latitud - centroLat
+  return dx * dx + dy * dy
+}
+
 export function MapaDePuntosDeVenta({
   puntos,
   urlDeGlifos,
@@ -143,13 +173,39 @@ export function MapaDePuntosDeVenta({
 }: MapaDePuntosDeVentaProps) {
   const [estado, setEstado] = useState<EstadoDelMapa>('cargando')
   const [seleccionado, setSeleccionado] = useState<number | null>(null)
+  /**
+   * Que pedazo de mundo se esta viendo. `null` mientras el mapa no cargo, y
+   * para siempre cuando no hay mapa: en los dos casos la lista cae en "todos",
+   * que es lo correcto si no hay encuadre del que hablar.
+   */
+  const [encuadre, setEncuadre] = useState<LngLatBounds | null>(null)
 
   const contenedorRef = useRef<HTMLDivElement | null>(null)
   const mapaRef = useRef<MapaMapLibre | null>(null)
-  const marcadoresRef = useRef(new Map<number, { marcador: Marker; nodo: HTMLElement }>())
   const fichasRef = useRef(new Map<number, HTMLLIElement>())
 
-  /* Crear el mapa. Una sola vez: despues solo se le cambian los marcadores. */
+  /**
+   * Lo que el mapa dibuja: un punto por local, con lo justo para pintarlo y
+   * reconocerlo.
+   *
+   * En `properties` van solo `id` y `tipo` —el color sale de uno, la seleccion
+   * del otro— y nada mas. El nombre, la direccion y el telefono ya estan del
+   * lado de React para la lista: duplicarlos adentro de la fuente serian mil
+   * cuatrocientas copias en memoria que el canvas no va a mirar nunca.
+   */
+  const geojson = useMemo(
+    () => ({
+      type: 'FeatureCollection' as const,
+      features: puntos.map((punto) => ({
+        type: 'Feature' as const,
+        properties: { id: punto.id, tipo: punto.tipo },
+        geometry: { type: 'Point' as const, coordinates: [punto.longitud, punto.latitud] },
+      })),
+    }),
+    [puntos],
+  )
+
+  /* Crear el mapa. Una sola vez: despues solo se le cambian los datos. */
   useEffect(() => {
     if (!urlDeTiles || !urlDeGlifos || mapaRef.current) return
 
@@ -174,7 +230,46 @@ export function MapaDePuntosDeVenta({
       cooperativeGestures: true,
     })
 
-    mapa.on('load', () => setEstado('listo'))
+    mapa.on('load', () => {
+      mapa.addSource(ID_FUENTE_DE_PUNTOS, {
+        type: 'geojson',
+        // Arranca vacia: los datos los pone el efecto de abajo, que es el mismo
+        // que corre cuando cambia el filtro.
+        data: { type: 'FeatureCollection', features: [] },
+        // Sin agrupar. El porque esta arriba de `ID_FUENTE_DE_PUNTOS`.
+        cluster: false,
+      })
+
+      for (const capa of capasDePuntos()) mapa.addLayer(capa)
+
+      const elegirDelMapa = (evento: MapLayerMouseEvent) => {
+        const id = evento.features?.[0]?.properties?.id
+        if (typeof id === 'number') setSeleccionado(id)
+      }
+      mapa.on('click', CAPAS.puntos, elegirDelMapa)
+      mapa.on('click', CAPAS.elegido, elegirDelMapa)
+
+      /* El cursor avisa que el circulo se puede tocar; el canvas no lo hace solo. */
+      for (const capa of [CAPAS.puntos, CAPAS.elegido]) {
+        mapa.on('mouseenter', capa, () => {
+          mapa.getCanvas().style.cursor = 'pointer'
+        })
+        mapa.on('mouseleave', capa, () => {
+          mapa.getCanvas().style.cursor = ''
+        })
+      }
+
+      /*
+       * De aca sale la lista. `moveend` y no `move`: durante el arrastre
+       * dispararia sesenta veces por segundo y volveria a armar la lista en
+       * cada cuadro, que es exactamente el trabajo que se saco del DOM.
+       */
+      mapa.on('moveend', () => setEncuadre(mapa.getBounds()))
+
+      setEncuadre(mapa.getBounds())
+      setEstado('listo')
+    })
+
     mapa.on('error', () => setEstado('error'))
 
     mapaRef.current = mapa
@@ -182,45 +277,21 @@ export function MapaDePuntosDeVenta({
     return () => {
       mapa.remove()
       mapaRef.current = null
-      marcadoresRef.current.clear()
     }
   }, [urlDeGlifos, urlDeTiles])
 
-  /* Redibujar los marcadores cuando cambia el filtro. */
+  /* Poner los puntos y encuadrarlos. Corre al cargar y cada vez que cambia el filtro. */
   useEffect(() => {
     const mapa = mapaRef.current
     if (!mapa || estado !== 'listo') return
 
-    for (const { marcador } of marcadoresRef.current.values()) marcador.remove()
-    marcadoresRef.current.clear()
+    const fuente = mapa.getSource(ID_FUENTE_DE_PUNTOS) as GeoJSONSource | undefined
+    if (!fuente) return
+
+    fuente.setData(geojson)
 
     const limites = new LngLatBounds()
-
-    for (const punto of puntos) {
-      /*
-       * Envoltorio y contenido separados: MapLibre le escribe un `transform` al
-       * elemento que recibe, para posicionarlo. Si el anillo fuera ese mismo
-       * elemento, agrandarlo al seleccionarlo pelearia con esa posicion.
-       */
-      const nodo = document.createElement('div')
-      const anillo = document.createElement('button')
-
-      anillo.type = 'button'
-      anillo.className = `${CLASES_DE_MARCADOR} ${CLASES_POR_TIPO[punto.tipo]}`
-      anillo.setAttribute('aria-label', `${punto.nombre} — ver los datos del local`)
-      anillo.title = punto.nombre
-      anillo.addEventListener('click', () => setSeleccionado(punto.id))
-
-      nodo.appendChild(anillo)
-
-      const marcador = new Marker({ element: nodo, anchor: 'center' })
-        .setLngLat([punto.longitud, punto.latitud])
-        .addTo(mapa)
-
-      marcadoresRef.current.set(punto.id, { marcador, nodo: anillo })
-      limites.extend([punto.longitud, punto.latitud])
-    }
-
+    for (const { latitud, longitud } of puntos) limites.extend([longitud, latitud])
     if (limites.isEmpty()) return
 
     /*
@@ -229,24 +300,18 @@ export function MapaDePuntosDeVenta({
      * dejaba la pantalla mostrando media vereda.
      */
     mapa.fitBounds(limites, { padding: 48, maxZoom: 15, animate: false })
-  }, [estado, puntos])
+  }, [estado, geojson, puntos])
 
-  /*
-   * El seleccionado se pinta de naranja y crece. `z-index` sobre el envoltorio
-   * porque en una ciudad con varios locales los marcadores se superponen.
-   */
+  /* El elegido se pinta de naranja: es un filtro sobre su capa, no un repintado. */
   useEffect(() => {
-    for (const [id, { marcador, nodo }] of marcadoresRef.current) {
-      const destacado = id === seleccionado
-      const punto = puntos.find((p) => p.id === id)
-      if (!punto) continue
+    const mapa = mapaRef.current
+    if (!mapa || estado !== 'listo') return
 
-      nodo.className = `${CLASES_DE_MARCADOR} ${
-        destacado ? CLASES_SELECCIONADO : CLASES_POR_TIPO[punto.tipo]
-      }`
-      marcador.getElement().style.zIndex = destacado ? '10' : '1'
-    }
-  }, [estado, puntos, seleccionado])
+    mapa.setFilter(
+      CAPAS.elegido,
+      seleccionado === null ? SIN_ELEGIDO : filtroDelElegido(seleccionado),
+    )
+  }, [estado, seleccionado])
 
   /*
    * Centrar el mapa y traer la ficha a la vista. Corre para las dos formas de
@@ -258,12 +323,16 @@ export function MapaDePuntosDeVenta({
 
     const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const punto = puntos.find((p) => p.id === seleccionado)
+    const mapa = mapaRef.current
 
-    if (punto) {
-      mapaRef.current?.easeTo({
-        center: [punto.longitud, punto.latitud],
-        animate: !sinMovimiento,
-      })
+    /*
+     * Centra y nada mas: no toca el zoom. Sin cumulos, el punto elegido se
+     * dibuja siempre —naranja, mas grande y en su capa, arriba de todo—, asi
+     * que no hay que acercar el mapa para que exista. Acercarlo igual seria
+     * decidir por el visitante que perdiera el contexto que tenia.
+     */
+    if (punto && mapa) {
+      mapa.easeTo({ center: [punto.longitud, punto.latitud], animate: !sinMovimiento })
     }
 
     // El `scroll-behavior: smooth` global de `styles.css` no alcanza: el suave
@@ -289,7 +358,47 @@ export function MapaDePuntosDeVenta({
     else fichasRef.current.delete(id)
   }, [])
 
+  /* Los que estan en pantalla, del mas cercano al centro al mas lejano. */
+  const enPantalla = useMemo(() => {
+    if (!encuadre) return puntos
+
+    const centro = encuadre.getCenter()
+    const escalaLng = Math.cos((centro.lat * Math.PI) / 180)
+
+    return puntos
+      .filter((punto) => encuadre.contains([punto.longitud, punto.latitud]))
+      .sort(
+        (a, b) =>
+          cercaniaAlCentro(a, centro.lng, centro.lat, escalaLng) -
+          cercaniaAlCentro(b, centro.lng, centro.lat, escalaLng),
+      )
+  }, [encuadre, puntos])
+
+  const listados = enPantalla.slice(0, TOPE_DE_LISTA)
+  const ocultos = enPantalla.length - listados.length
   const hayMapa = Boolean(urlDeTiles && urlDeGlifos)
+
+  /**
+   * El recuento de arriba de la lista.
+   *
+   * Sin encuadre —el mapa todavia no cargo, o directamente no hay mapa— no se
+   * puede hablar de "en pantalla": no hay pantalla de la que hablar, y decirlo
+   * igual anuncia "60 de 1425 en pantalla" arriba de un recuadro gris que
+   * todavia esta cargando. La salida en ese caso tampoco es acercar el mapa,
+   * sino usar los filtros; las dos frases cambian juntas.
+   */
+  const plural = enPantalla.length === 1 ? 'local' : 'locales'
+  const donde = encuadre ? ' en pantalla' : ''
+  const comoVerElResto = encuadre
+    ? 'acercá el mapa para ver el resto'
+    : 'filtrá por provincia para achicar la búsqueda'
+
+  const recuento =
+    enPantalla.length === 0
+      ? 'No hay locales en esta parte del mapa'
+      : ocultos > 0
+        ? `${listados.length} de ${enPantalla.length}${donde} · ${comoVerElResto}`
+        : `${enPantalla.length} ${plural}${donde}`
 
   return (
     <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
@@ -318,32 +427,48 @@ export function MapaDePuntosDeVenta({
       ) : (
         <AvisoEnLinea rotulo="Mapa no disponible">
           <p>
-            Falta configurar el archivo de mapa del sitio. Mientras tanto, todos los locales están
-            en la lista, con su dirección y el enlace para llegar.
+            Falta configurar el archivo de mapa del sitio. Mientras tanto, los locales están en la
+            lista, con su dirección y el enlace para llegar. Usá los filtros de arriba para achicar
+            la búsqueda.
           </p>
         </AvisoEnLinea>
       )}
 
-      <div className="lg:max-h-[clamp(360px,60vh,640px)] lg:overflow-y-auto">
-        <ul className="flex flex-col gap-3">
-          {puntos.map((punto) => (
-            <li key={punto.id} ref={(nodo) => registrarFicha(punto.id, nodo)}>
-              <TarjetaPuntoDeVenta
-                alSeleccionar={() => setSeleccionado(punto.id)}
-                direccion={punto.direccion}
-                fotoUrl={punto.fotoUrl}
-                horarios={punto.horarios}
-                localidad={punto.localidad}
-                nombre={punto.nombre}
-                provincia={punto.provincia}
-                seleccionada={punto.id === seleccionado}
-                telefono={punto.telefono}
-                tipo={punto.etiquetaDeTipo}
-                urlComoLlegar={urlDeComoLlegar({ lat: punto.latitud, lng: punto.longitud })}
-              />
-            </li>
-          ))}
-        </ul>
+      <div className="flex flex-col gap-3 lg:max-h-[clamp(360px,60vh,640px)] lg:overflow-y-auto">
+        {/*
+          El recuento va en `aria-live` porque cambia sin que nadie lo pida: al
+          mover el mapa, la lista de abajo se renueva entera y sin este aviso un
+          lector de pantalla no tendria como enterarse.
+        */}
+        <p aria-live="polite" className="font-util text-meta text-apagado uppercase">
+          {recuento}
+        </p>
+
+        {enPantalla.length === 0 ? (
+          <p className="text-parrafo">
+            Alejá el mapa o movelo hacia una ciudad para volver a ver locales.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {listados.map((punto) => (
+              <li key={punto.id} ref={(nodo) => registrarFicha(punto.id, nodo)}>
+                <TarjetaPuntoDeVenta
+                  alSeleccionar={() => setSeleccionado(punto.id)}
+                  direccion={punto.direccion}
+                  fotoUrl={punto.fotoUrl}
+                  horarios={punto.horarios}
+                  localidad={punto.localidad}
+                  nombre={punto.nombre}
+                  provincia={punto.provincia}
+                  seleccionada={punto.id === seleccionado}
+                  telefono={punto.telefono}
+                  tipo={punto.etiquetaDeTipo}
+                  urlComoLlegar={urlDeComoLlegar({ lat: punto.latitud, lng: punto.longitud })}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )

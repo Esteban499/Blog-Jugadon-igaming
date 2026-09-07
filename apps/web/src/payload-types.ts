@@ -73,6 +73,7 @@ export interface Config {
     authors: Author;
     promociones: Promocion;
     plataformas: Plataforma;
+    banners: Banner;
     'puntos-de-venta': PuntoDeVenta;
     media: Media;
     users: User;
@@ -97,6 +98,7 @@ export interface Config {
     authors: AuthorsSelect<false> | AuthorsSelect<true>;
     promociones: PromocionesSelect<false> | PromocionesSelect<true>;
     plataformas: PlataformasSelect<false> | PlataformasSelect<true>;
+    banners: BannersSelect<false> | BannersSelect<true>;
     'puntos-de-venta': PuntosDeVentaSelect<false> | PuntosDeVentaSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
@@ -598,7 +600,50 @@ export interface Plataforma {
   createdAt: string;
 }
 /**
- * Las salas y agencias que se muestran en el mapa del sitio. Cada una necesita su par de coordenadas para aparecer.
+ * Las piezas de campaña que encabezan la pantalla de promociones. Se turnan solas, en el orden de acá abajo.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "banners".
+ */
+export interface Banner {
+  id: number;
+  /**
+   * Solo para reconocerlo acá adentro. No se muestra en el sitio.
+   */
+  nombre: string;
+  /**
+   * La oferta escrita en texto, tal como se lee en la imagen. Ej: "Bono de bienvenida: creá tu cuenta y recibí $25.000".
+   */
+  mensaje: string;
+  /**
+   * Faja apaisada. La medida del arte actual es 1350 × 260.
+   */
+  imagenEscritorio: number | Media;
+  /**
+   * La misma campaña recompuesta en vertical. La medida actual es 800 × 400.
+   */
+  imagenTelefono: number | Media;
+  /**
+   * En qué jurisdicciones se muestra. Vacío es en todas. Si una necesita otro arte, cargá la pieza aparte y sacá esa jurisdicción de esta lista: si no, se ven las dos.
+   */
+  plataformas?: (number | Plataforma)[] | null;
+  /**
+   * Las promociones que este banner ya está mostrando. No aparecen en la grilla de abajo, para no repetirlas.
+   */
+  promocionesQueCubre?: (number | Promocion)[] | null;
+  /**
+   * De menor a mayor. El más chico se muestra primero.
+   */
+  orden: number;
+  /**
+   * Destildado, el banner deja de salir en el sitio pero no se borra.
+   */
+  activo?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Las salas, agencias y puntos de pago que se muestran en el mapa del sitio. Cada uno necesita su par de coordenadas para aparecer.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "puntos-de-venta".
@@ -610,9 +655,9 @@ export interface PuntoDeVenta {
    */
   nombre: string;
   /**
-   * La sala es el local propio; la agencia, el comercio adherido. Decide el color del marcador y es uno de los dos filtros del mapa.
+   * La sala es el local propio; la agencia, el comercio adherido de la red de Jugadon; el punto de pago, el comercio donde solo se carga y se retira, sin juego. Decide el color del marcador y es uno de los dos filtros del mapa.
    */
-  tipo: 'sala' | 'agencia';
+  tipo: 'sala' | 'agencia' | 'punto-de-pago';
   /**
    * Calle y número, como para llegar. Sin la localidad ni la provincia.
    */
@@ -666,6 +711,10 @@ export interface PuntoDeVenta {
    * Opcional. La fachada, para reconocer el local al llegar.
    */
   foto?: (number | null) | Media;
+  /**
+   * Lo pone la importación. Es lo que permite volver a importar la planilla sin duplicar el local.
+   */
+  codigoExterno?: string | null;
   /**
    * Destildar para sacarlo del mapa sin borrarlo: sirve para un local cerrado por refacción.
    */
@@ -860,6 +909,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'plataformas';
         value: number | Plataforma;
+      } | null)
+    | ({
+        relationTo: 'banners';
+        value: number | Banner;
       } | null)
     | ({
         relationTo: 'puntos-de-venta';
@@ -1074,6 +1127,22 @@ export interface PlataformasSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "banners_select".
+ */
+export interface BannersSelect<T extends boolean = true> {
+  nombre?: T;
+  mensaje?: T;
+  imagenEscritorio?: T;
+  imagenTelefono?: T;
+  plataformas?: T;
+  promocionesQueCubre?: T;
+  orden?: T;
+  activo?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "puntos-de-venta_select".
  */
 export interface PuntosDeVentaSelect<T extends boolean = true> {
@@ -1087,6 +1156,7 @@ export interface PuntosDeVentaSelect<T extends boolean = true> {
   telefono?: T;
   horarios?: T;
   foto?: T;
+  codigoExterno?: T;
   activo?: T;
   updatedAt?: T;
   createdAt?: T;

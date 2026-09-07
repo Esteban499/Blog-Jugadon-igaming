@@ -14,6 +14,15 @@ export interface LogoJugadonProps {
   /** Ancho de la caja del logo. 120 en la navbar, 150 en el footer. */
   ancho: number
   alto: number
+  /**
+   * Caja en clases, para los tamanos que cambian con el ancho de pantalla.
+   *
+   * Cuando viene, reemplaza al `style` en lugar de sumarse: una regla en linea
+   * le gana a cualquier clase, asi que conviviendo las dos el `lg:` no cambiaria
+   * nada. `ancho` y `alto` siguen haciendo falta —son el tamano mayor de los
+   * declarados, del que sale el `sizes` del `next/image`—.
+   */
+  clasesDeCaja?: string
   /** La navbar esta arriba de todo: su logo entra en el LCP. */
   prioridad?: boolean
 }
@@ -25,9 +34,12 @@ export interface LogoJugadonProps {
  * la caja y la corre, dejando visible solo el wordmark. Al ser todo porcentajes
  * el mismo encuadre sirve para los dos tamanos.
  */
-export function LogoJugadon({ ancho, alto, prioridad = false }: LogoJugadonProps) {
+export function LogoJugadon({ ancho, alto, clasesDeCaja, prioridad = false }: LogoJugadonProps) {
   return (
-    <span className="relative block overflow-hidden" style={{ width: ancho, height: alto }}>
+    <span
+      className={`relative block overflow-hidden ${clasesDeCaja ?? ''}`.trim()}
+      style={clasesDeCaja ? undefined : { width: ancho, height: alto }}
+    >
       <Image
         alt="Jugadon"
         className="absolute top-[-36.3%] left-[-20.99%] h-[168.25%] w-[139.51%] max-w-none"

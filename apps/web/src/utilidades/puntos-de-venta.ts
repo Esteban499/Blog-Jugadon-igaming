@@ -13,24 +13,36 @@
  */
 
 /**
- * Sala y agencia no son lo mismo y el visitante lo sabe: la sala es el local
- * propio, con su horario y su piso de juego; la agencia es un comercio adherido
- * donde se cobra y se apuesta. El filtro existe porque quien busca una cosa no
- * quiere la otra.
+ * Tres cosas distintas que el visitante ya distingue antes de entrar.
+ *
+ * La **sala** es el local propio, con su horario y su piso de juego. La
+ * **agencia** es el comercio adherido de la red de Jugadon, donde se apuesta y
+ * se cobra: tiene codigo de agencia y esta en el listado de la marca. El
+ * **punto de pago** no es ninguna de las dos: es una farmacia, un supermercado
+ * o un centro de servicio de la red de cobranzas, donde lo unico que se puede
+ * hacer es cargar saldo o retirar. Ahi no se juega.
+ *
+ * El filtro existe porque quien busca una cosa no quiere las otras, y la
+ * diferencia importa: mandar a alguien a una farmacia a jugar es mandarlo al
+ * lugar equivocado. Son ademas ordenes de magnitud distintos —una veintena de
+ * salas contra mas de mil puntos de pago—, asi que sin el filtro los primeros
+ * desaparecen entre los segundos.
  */
-export const TIPOS_DE_PUNTO = ['sala', 'agencia'] as const
+export const TIPOS_DE_PUNTO = ['sala', 'agencia', 'punto-de-pago'] as const
 
 export type TipoDePunto = (typeof TIPOS_DE_PUNTO)[number]
 
 export const ETIQUETAS_DE_TIPO_DE_PUNTO: Record<TipoDePunto, string> = {
   sala: 'Salas',
   agencia: 'Agencias',
+  'punto-de-pago': 'Puntos de pago',
 }
 
 /** En singular, para la ficha de un punto suelto. */
 export const ETIQUETAS_DE_TIPO_DE_PUNTO_SINGULAR: Record<TipoDePunto, string> = {
   sala: 'Sala',
   agencia: 'Agencia',
+  'punto-de-pago': 'Punto de pago',
 }
 
 /**

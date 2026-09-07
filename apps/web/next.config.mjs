@@ -22,6 +22,8 @@ const nextConfig = {
       { pathname: '/redes/**', search: '' },
       { pathname: '/loterias/**', search: '' },
       { pathname: '/iconos/**', search: '' },
+      { pathname: '/providers/**', search: '' },
+      { pathname: '/banners/**', search: '' },
       /*
        * Las portadas no salen del bucket directo: Payload las sirve por su
        * propia ruta y le agrega el prefijo de la coleccion como query. Sin
@@ -36,6 +38,30 @@ const nextConfig = {
         hostname: 'localhost',
         port: '9000',
         pathname: '/blog-media/**',
+      },
+      /*
+       * Las miniaturas de los juegos de la seccion de ultimos ganadores. No son
+       * media de Payload: las sirve el CDN de la plataforma de casino, que es
+       * de donde salen tambien en el lobby de cada jurisdiccion. El `pathname`
+       * las acota a la carpeta de contextos de casino y no deja el dominio
+       * abierto entero.
+       */
+      {
+        protocol: 'https',
+        hostname: 'd2i3l2m8dk0scd.cloudfront.net',
+        pathname: '/platform/contexts/**',
+      },
+      /*
+       * Las miniaturas de los shorts del canal de YouTube. El feed las reporta
+       * indistintamente en `i.ytimg.com`, `i1`, `i2`, `i3` e `i4`; para no
+       * declarar cinco patrones ni abrir el dominio con comodin, la URL se
+       * reconstruye a partir del id del video y sale siempre de este host. Ver
+       * `miniaturaDe` en `utilidades/shorts`.
+       */
+      {
+        protocol: 'https',
+        hostname: 'i.ytimg.com',
+        pathname: '/vi/**',
       },
     ],
   },

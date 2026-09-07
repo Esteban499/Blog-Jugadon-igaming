@@ -75,8 +75,10 @@ apps/web/
                                de Lexical a JSX
   src/app/(payload)/           Panel y API (generado por Payload)
   src/app/(frontend)/          Sitio publico
+  src/app/(frontend)/datos/    Route handlers propios del sitio publico. Fuera
+                               de `/api`, que es de Payload
   src/seed.ts                  Datos de prueba
-  src/scripts/                 reindex y los scripts de migracion de contenido
+  src/scripts/                 reindex, importacion de puntos y migraciones de contenido
 ```
 
 En `apps/web/contenido-exportado.json` quedo el respaldo del cuerpo de las
@@ -310,18 +312,262 @@ fecha quedo vieja, lo que fallo es la corrida entera, no el mapeo.
   promocion merece imagen propia, se carga en `portada` y la del origen se
   ignora.
 
+## Ultimos ganadores
+
+Los treinta premios mas altos que pagaron las plataformas, en la portada justo
+encima de la cinta de proveedores. Es dato vivo: no pasa por Payload y no hay
+nada que cargar a mano.
+
+Sale del mismo endpoint publico que consume el lobby de casino de cada sitio,
+`PROXY_URL/matchcasino/last-winners`, y se piden las cuatro jurisdicciones que
+lo exponen: San Luis (`proxy2`), Cordoba, La Rioja y CABA. Cada registro se
+marca con su provincia, se juntan en una sola lista, se ordenan por monto
+descendente y se cortan en treinta.
+
+### El `Accept` no se toca
+
+**El endpoint negocia contenido con una cadena literal, y con cualquier otra
+contesta 204 sin cuerpo.** Hay que mandar exactamente:
+
+    Accept: application/json, text/plain, */*
+
+que es el que emite el axios del lobby. Con `application/json` a secas, con el
+comodin a secas o sin cabecera, la respuesta es 204.
+
+Esa es la trampa: **204 es un exito**, asi que `respuesta.ok` da `true`, no se
+tira ninguna excepcion y no aparece nada en ningun log. Visto desde afuera es
+identico a una API que todavia no tiene datos. Si algun dia la seccion deja de
+mostrar premios sin explicacion, esta cabecera es el primer lugar donde mirar.
+
+Ni `Origin`, ni `Referer`, ni `User-Agent` cambian nada; se manda `Referer` por
+prolijidad, no porque haga falta.
+
+### Un 204 legitimo tampoco es un error
+
+Una jurisdiccion que no pago ningun premio en la ventana que mira el endpoint
+contesta 204 con la cabecera correcta. La Rioja viene contestando asi de forma
+sostenida. No se trata como falla: esa jurisdiccion no aporta registros y las
+otras tres siguen su curso. Las cuatro peticiones van con `allSettled` por lo
+mismo, un proxy caido no puede dejar la portada sin seccion.
+
+Si las cuatro vienen vacias, la seccion **no se dibuja**: un titulo sobre un
+hueco seria peor que no tenerla.
+
+### Cada tarjeta pide su propio recorte
+
+El catalogo publica tres versiones de la miniatura de cada juego, y **no son la
+misma imagen escalada**: cada una esta compuesta aparte, con el titulo del juego
+y el logo del proveedor donde entran.
+
+| tag            | medida  | donde se usa   |
+| -------------- | ------- | -------------- |
+| `vertical`     | 420x588 | el premio mayor |
+| `square`       | 420x420 | la pista        |
+| `rectangulars` | 320x210 | en ningun lado, queda de respaldo |
+
+Recortar una a la forma de la otra es justo lo que se lleva puestos el titulo y
+el logo, que es lo unico que hace reconocible una miniatura a ese tamano. Por
+eso el servidor manda las dos que se usan y elige la tarjeta, no el dato: la
+forma del hueco la conoce la maqueta.
+
+### La seccion se maqueta contra el contenedor, como todo lo demas
+
+Nada especial: usa `contenedor`, igual que cualquier otra pantalla. Vale la pena
+dejar dicho igual que **esta seccion es la razon por la que el contenedor del
+sitio pasó de 1200px a 1700px**.
+
+En un monitor ancho, a 1200 entraban tres columnas y media de premios y el resto
+quedaba en aire. La regla de los 1200 venia de la medida de linea legible, y esa
+razon vale para un parrafo pero no para una fila de miniaturas. Se movio el
+numero del sistema en vez de darle un ancho propio a esta seccion: una segunda
+medida de contenedor es justo lo que hace que dos secciones no alineen y que
+despues nadie sepa cual manda. Ver §4.3 del manual.
+
+Hubo una version intermedia que soltaba el borde derecho contra la ventana y
+conservaba la sangria izquierda del contenedor. Entraban mas columnas todavia,
+pero se descarto: con la tarjeta del premio mayor anclada a la izquierda, el
+margen de ese lado quedaba a la vista como un hueco y la seccion se leia
+corrida.
+
+**El ancho de columna de la pista esta atado a esto.** Sus 13rem no son un
+numero elegido a ojo: dos filas de tarjeta cuadrada de 208px mas los controles
+dan el alto exacto que necesita el premio mayor para dibujar su 420x588 en
+proporcion nativa sobre los 384px de su columna. Tocar ese ancho no agranda las
+tarjetas de la pista y ya: empieza a recortar la imagen de la tarjeta grande, y
+es un efecto que no se ve venir desde el archivo donde se cambia.
+
+### Dos dominios de imagen, uno solo habilitado
+
+Las miniaturas de los juegos vienen casi siempre del CDN
+(`d2i3l2m8dk0scd.cloudfront.net`), pero unos pocos registros —tres de noventa
+en la muestra— traen la URL del bucket que ese CDN tiene detras
+(`sirplay-amazon.s3.eu-west-3.amazonaws.com`), con el mismo path y el mismo
+archivo byte por byte. Se reescriben al CDN y solo el CDN esta en
+`remotePatterns`.
+
+Lo que llegue de un tercer dominio se descarta y la tarjeta cae en
+`SinPortada`. No es prolijidad: `next/image` **tira una excepcion** ante un
+`src` de un host no configurado, y como la seccion se dibuja del lado del
+cliente esa excepcion se lleva puesta la pantalla entera. Ya paso una vez, con
+el bucket.
+
+### Tocar una tarjeta abre el modal de plataformas
+
+Cada premio es tocable y abre un dialogo con las cuatro plataformas. Existe
+porque la tarjeta prometia algo que no cumplia: un premio con monto, juego y
+provincia se lee como algo en lo que se puede participar, y tocarlo no hacia
+nada.
+
+**No lleva a ningun juego puntual.** Seria lo esperable, pero la ruta de
+lanzamiento de la plataforma (`/launch/<id>`) pide sesion iniciada, asi que
+mandaria a quien toca a un login sin contexto. El destino es la portada de cada
+plataforma.
+
+Salen las **cuatro**, no solo la del premio: quien mira un premio de CABA puede
+jugar en San Luis. La del premio va marcada y con el borde encendido, pero el
+orden de la lista no cambia nunca, asi no baila entre una tarjeta y otra.
+
+Los enlaces salen con `rel="nofollow sponsored noopener"` y `target="_blank"`,
+el mismo tratamiento que los enlaces a plataformas de `/promociones`, y el modal
+cierra con la linea de "+18, jugá de forma responsable": es, literalmente, el
+paso previo a ir a jugar con dinero real.
+
+Los hosts publicos van en minuscula, que es su forma canonica: `larioja`, no
+`LaRioja`. Viven junto con los de la API en `utilidades/jurisdicciones.ts`, un
+modulo puro que leen los dos lados —el servidor para pedir premios, el cliente
+para armar los enlaces—. Escritos por separado, cambiar un dominio dejaria la
+seccion pidiendole premios a una plataforma y mandando visitas a otra.
+
+### Por que esta seccion pide sus datos desde el cliente
+
+Es la unica de la portada que lo hace, y rompe a proposito la regla de "un solo
+archivo cliente en la home". La portada es estatica y se regenera cada hora,
+que es el ritmo correcto para noticias que salen de Payload; una lista que se
+llama "ultimos ganadores" con una hora de atraso deja de ser cierta.
+
+Pidiendola aparte contra `/datos/ultimos-ganadores` —route handler propio, con
+un minuto de cache— los premios se renuevan cada minuto y el resto de la home
+sigue sirviendose estatica.
+
+### Y se refrescan al volver a la pestania
+
+La seccion no lee una sola vez: vuelve a pedir los premios cuando la pestania
+recupera el foco (`visibilitychange`). Es el momento en que la lista importa,
+porque quien vuelve despues de un rato espera ver premios de ahora y no los de
+cuando abrio la pagina.
+
+**No es un intervalo, y es a proposito.** Un `setInterval` reordenaria las
+tarjetas mientras alguien esta recorriendo la pista —es un carrusel, y moverle
+el contenido debajo del dedo es peor que mostrarlo un minuto viejo— y ademas
+seguiria pidiendo con la pestania de fondo, que es trabajo que nadie ve.
+
+Tres guardas, y las tres hacen falta:
+
+- **Solo al volver, no al irse.** El evento dispara en los dos sentidos.
+- **Nunca con el modal abierto.** La tarjeta que lo abrio queda guardada aparte
+  y seguiria siendo valida, pero cambiar la lista debajo mientras alguien decide
+  a que plataforma ir no le suma nada.
+- **Nunca antes del minuto.** Es lo que dura el cache de la ruta, asi que pedir
+  antes devuelve lo mismo byte por byte. Sin esto, alternar entre dos pestanias
+  dispara una peticion por cambio.
+
+Y un detalle que no se ve hasta que falla: **si el refresco sale mal, se queda
+lo que habia**. Solo la PRIMERA lectura puede dejar la seccion sin dibujar; en
+un refresco ya hay treinta tarjetas en pantalla, y borrarlas porque una
+relectura fallo seria hacer desaparecer contenido bueno delante de quien lo
+estaba mirando.
+
+Esa ruta **no vive bajo `/api`**: ese prefijo es de Payload, que lo atiende
+entero con un catch-all. Un segmento estatico le ganaria, pero seria una
+precedencia sutil de la que despues depende una pantalla.
+
+### Los nombres se tapan en el servidor
+
+El formato es dos letras, cuatro asteriscos y dos letras: `carinabusto` sale
+como `CA****TO`. Los usuarios de cuatro caracteres o menos se reducen a la
+inicial, porque ahi "dos primeras + dos ultimas" no taparia absolutamente nada.
+
+La ofuscacion —y el formato en pesos— pasan antes de cruzar la red, no en la
+maqueta. Al navegador nunca le llega un `userLogin` real: no esta en el HTML ni
+en la respuesta que se ve por DevTools.
+
 ## Puntos de venta
 
-Las salas y agencias, con su mapa en `/puntos-de-venta`. Una sola coleccion con
-un campo `tipo` que las distingue: comparten todos los campos, y con dos
-colecciones cada campo nuevo habria que agregarlo dos veces.
+Mil cuatrocientos locales con su mapa en `/puntos-de-venta`. Una sola coleccion
+con un campo `tipo` que los distingue: comparten todos los campos, y con tres
+colecciones cada campo nuevo habria que agregarlo tres veces.
 
-Las coordenadas se cargan **a mano**, no se geocodifican. Geocodificar al
-guardar seria mas comodo pero mete una llamada paga en el guardado y falla en
-silencio donde mas duele: una calle que existe en tres localidades se resuelve
-sola contra la equivocada y el local queda a doscientos kilometros sin que nadie
-se entere. En Google Maps, clic derecho sobre la puerta del local y "copiar
-coordenadas".
+Los tres tipos no son matices del mismo negocio:
+
+| Tipo | Que es | Cuantos |
+| --- | --- | --- |
+| `sala` | El local propio de la marca, con su piso de juego. | 12 |
+| `agencia` | El comercio adherido con terminal de juego. | 214 |
+| `punto-de-pago` | Farmacia, supermercado o centro de servicio donde **solo** se carga saldo y se retira. Ahi no se juega. | 1.199 |
+
+La distincion importa y por eso es un filtro y no una etiqueta: mandar a alguien
+a una farmacia a jugar es mandarlo al lugar equivocado. Ademas son ordenes de
+magnitud distintos, asi que sin el filtro las doce salas desaparecen entre los
+mil doscientos puntos de pago.
+
+Las coordenadas **no se geocodifican nunca**: o vienen en la planilla de origen,
+o las carga a mano quien da de alta el local. Geocodificar al guardar seria mas
+comodo pero mete una llamada paga en el guardado y falla en silencio donde mas
+duele: una calle que existe en tres localidades se resuelve sola contra la
+equivocada y el local queda a doscientos kilometros sin que nadie se entere. En
+Google Maps, clic derecho sobre la puerta del local y "copiar coordenadas".
+
+### Importar las planillas
+
+El grueso del directorio no se carga a mano: llega como dos planillas de la
+operacion, en `PDV/`, y entra con
+
+```bash
+pnpm importar-puntos:simular   # lee, normaliza y muestra, sin tocar la base
+pnpm importar-puntos           # lo mismo, escribiendo
+```
+
+Correr **siempre primero la simulacion**. Los dos archivos vienen de sistemas
+ajenos y lo que hay que mirar antes de escribir mil cuatrocientas filas es como
+quedaron los nombres y cuantas se descartan, no si Postgres esta levantado.
+
+Las dos planillas son dos redes distintas y no se pisan —cruzadas por
+coordenadas coinciden en dos locales sobre mil cuatrocientos—:
+
+- **`issues (N).csv`**, la red propia en San Luis: trae codigo de agencia y
+  telefono, no trae horarios. Punto y coma como separador y **Windows-1252**, no
+  UTF-8.
+- **`Listado PDV *.xlsx`**, la red de cobranzas en CABA, Cordoba, San Luis y La
+  Rioja: trae horarios, no trae telefono.
+
+Es idempotente. Cada punto se guarda con el identificador que traia su planilla
+—`agencias:687-000`, `pagos:5149300`— en `codigoExterno`, y reimportar actualiza
+en lugar de duplicar. No hay otra llave posible: el listado propio tiene
+veintitres agencias cuyo unico nombre es su codigo y cuatro locales distintos
+llamados "La Suerte", asi que "mismo nombre y misma localidad" fusionaria cosas
+que no tienen nada que ver.
+
+La importacion **no toca `activo`** de lo que ya existe: sacar un local del mapa
+es una decision que alguien tomo desde el panel. Los puntos que estaban y ya no
+vienen en la planilla se informan al final, para que alguien decida.
+
+Tres cosas que hace el importador y conviene saber que hace:
+
+- **Normaliza el texto.** Las dos planillas vienen gritadas y sin acentos
+  (`FARMACIA ANTIGUA CHARCAS`). Se pasan a capitalizacion normal, respetando
+  siglas (`C.S.`, `(CF)`, `S/N`) y con una tabla corta de acentos que solo
+  incluye palabras que en castellano **siempre** llevan tilde: `RIO` es siempre
+  `Rio`, `ESTE` no. Lo que quede sin tilde se lee igual; lo que se corrija de
+  mas, no.
+- **Arregla las coordenadas.** El CSV mezcla los dos separadores decimales en la
+  misma fila (`-33,225504` y `-66.227879`), y el `.xlsx` las trae al reves,
+  `[lon, lat]` en un solo campo. Un `Number()` derecho pierde media provincia
+  sin avisar y un orden invertido manda un local de Cordoba al Indico.
+- **No lee las planillas con una libreria.** El `.xlsx` es un ZIP con XML
+  adentro, y `src/scripts/planillas.ts` lo abre con `node:zlib` en streaming.
+  Son ciento cincuenta lineas contra una dependencia de varios megas, y la hoja
+  pesa 85 MB: levantada entera a un `string` son ~170 MB de heap por un archivo
+  que en disco entra en un adjunto de mail.
 
 ### El mapa no es de Google, pero se ve como uno
 
@@ -334,9 +580,37 @@ del archivo, y en R2 no se paga egress.
 
 Dos consecuencias que se ven en el codigo:
 
-- **Los marcadores son DOM, no dibujos.** Cada uno es un `<button>` con clases
-  del sistema: entra en el orden de tabulacion y lo anuncia el lector de
-  pantalla. Con Google eran paths SVG dentro de un canvas.
+- **Los marcadores son una fuente GeoJSON, no elementos.** Con catorce locales
+  eran un `<button>` cada uno, que entraba en el orden de tabulacion. Con mil
+  cuatrocientos eso es un nodo del DOM por local que el navegador reposiciona en
+  cada cuadro de un arrastre: el mapa deja de seguir al dedo. Ahora los dibuja la
+  GPU, y arrastrar cuesta lo mismo con catorce que con mil cuatrocientos.
+
+  Lo que se pierde —que el marcador ya no lo anuncie el lector de pantalla— se
+  compensa del lado de la lista, que son fichas reales y navegables con teclado.
+  Es tambien por eso que **la lista muestra lo que hay en pantalla** y no una
+  pagina arbitraria: si es el equivalente accesible del mapa, tiene que decir lo
+  mismo que el mapa. Ordenada por cercania al centro y cortada en sesenta
+  fichas, que es mas de lo que alguien recorre.
+
+- **Los puntos NO se agrupan en cumulos.** La fuente lleva `cluster: false` y
+  cada local es su propio circulo en todos los zooms. El agrupamiento estuvo un
+  rato y se saco a proposito: cambia lo que la pantalla es. Con cumulos, el
+  encuadre de arranque son doce burbujas con numeros adentro y hay que ir
+  abriendolas hasta llegar a un local; sin ellos se ve de una donde hay locales
+  y donde no, que es la pregunta con la que alguien entra.
+
+  El costo se acepta y esta a la vista: en el encuadre de pais, los cuatrocientos
+  de CABA y los seiscientos de Cordoba son dos manchas azules. Lo unico que se
+  hace al respecto es achicar el radio del circulo a 3 px en los zooms lejanos
+  —con el radio de ciudad serian una mancha solida— y confiar en los filtros y
+  en el recuento de la lista, que dice cuantos hay ahi aunque el mapa no los
+  separe.
+
+  Agrupar y no agrupar son cinco lineas de diferencia (`cluster`, dos capas y el
+  handler que abre el cumulo). Si algun dia se quiere volver, esta en el
+  historial de git; lo que no conviene es dejar las dos formas conviviendo detras
+  de una bandera.
 - **La paleta no sale de los tokens del sistema.** `saborGoogle()` en
   `utilidades/mapa.ts` lee los `--mapa-*` de `styles.css` con `getComputedStyle`:
   siguen siendo variables CSS —un color, un solo lugar, compartido con la
@@ -359,9 +633,12 @@ Tres reglas para que la excepcion no se derrame:
 - Viven fuera de `@theme`, en un `:root` propio: Tailwind solo emite las
   variables de `@theme` que alguna utilidad llega a usar, y a estas las lee
   `getComputedStyle`, que no es una utilidad.
-- **Los marcadores siguen siendo de la marca**: azul institucional las salas,
-  azul de marca las agencias, naranja el seleccionado. Van rellenos y con anillo
-  blanco porque un circulo hueco no se ve sobre tierra clara.
+- **Los marcadores siguen siendo de la marca**: tres pesos del mismo azul —el
+  institucional para las salas, el de marca para las agencias, el de enlace para
+  los puntos de pago— y naranja el seleccionado. En ese orden por algo: los
+  puntos de pago son el color mas claro porque son mil doscientos y en CABA
+  taparian todo lo demas. Van rellenos y con anillo blanco porque un circulo
+  hueco no se ve sobre tierra clara.
 
 ### maplibre-gl esta fijado en la v5. NO subirlo a la v6
 
@@ -525,6 +802,7 @@ pnpm build               # build de produccion
 pnpm seed                # datos de prueba
 pnpm reindex             # resincroniza el indice de busqueda
 pnpm cargar-plataformas  # deja cargadas las cinco plataformas (idempotente)
+pnpm importar-puntos     # carga los puntos de venta desde PDV/ (idempotente)
 pnpm scrapear-promos     # corre el bot de promociones a mano
 pnpm probar-adaptador    # muestra lo que lee un adaptador, sin tocar la base
 pnpm exportar-contenido  # vuelca el cuerpo de las entradas a JSON

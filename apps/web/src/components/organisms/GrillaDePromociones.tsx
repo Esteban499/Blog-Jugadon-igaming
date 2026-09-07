@@ -15,7 +15,7 @@ export interface GrillaDePromocionesProps {
 
 export function GrillaDePromociones({ promociones }: GrillaDePromocionesProps) {
   return (
-    <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
       {promociones.map((promo) => (
         <li key={promo.id}>
           <TarjetaPromocion

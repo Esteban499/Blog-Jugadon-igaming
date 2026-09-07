@@ -23,3 +23,13 @@ export const relacion = <T>(valor: number | T | null | undefined): T | undefined
 export const urlDeUpload = (
   valor: number | { url?: string | null } | null | undefined,
 ): string | undefined => relacion(valor)?.url ?? undefined
+
+/**
+ * El id de una relacion, venga poblada o no.
+ *
+ * El complemento de `relacion`: ahi el interes es el documento y aca la
+ * referencia. Sirve para comparar contra otros ids sin tener que subir el
+ * `depth` de la consulta ni escribir el `typeof` en cada pantalla.
+ */
+export const idDeRelacion = (valor: number | { id: number } | null | undefined): number | undefined =>
+  typeof valor === 'number' ? valor : (valor?.id ?? undefined)

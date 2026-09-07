@@ -208,9 +208,9 @@ export type Adaptador = (contexto: ContextoDelAdaptador) => Promise<ResultadoDel
  * otro.
  */
 export const ADAPTADORES_DISPONIBLES = [
-  { label: 'Jugadón · los dos orígenes', value: 'jugadon' },
-  { label: 'Jugadón · solo bonos (bonus-engine)', value: 'jugadon-bonus-engine' },
-  { label: 'Jugadón · solo promos (sircms)', value: 'jugadon-sircms' },
+  { label: 'Jugadon · los dos orígenes', value: 'jugadon' },
+  { label: 'Jugadon · solo bonos (bonus-engine)', value: 'jugadon-bonus-engine' },
+  { label: 'Jugadon · solo promos (sircms)', value: 'jugadon-sircms' },
 ] as const
 
 export type SlugDeAdaptador = (typeof ADAPTADORES_DISPONIBLES)[number]['value']

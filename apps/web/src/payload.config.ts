@@ -11,6 +11,7 @@ import { searchPlugin } from '@payloadcms/plugin-search'
 import { es } from '@payloadcms/translations/languages/es'
 
 import { Authors } from './collections/Authors'
+import { Banners } from './collections/Banners'
 import { Categories } from './collections/Categories'
 import { Media } from './collections/Media'
 import { Plataformas } from './collections/Plataformas'
@@ -78,6 +79,7 @@ const config = buildConfig({
     Authors,
     Promociones,
     Plataformas,
+    Banners,
     PuntosDeVenta,
     Media,
     Users,
