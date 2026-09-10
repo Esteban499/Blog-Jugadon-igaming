@@ -106,7 +106,7 @@ export function CarruselDeProveedores() {
         className="contenedor font-util text-legal text-apagado uppercase"
         id="titulo-proveedores"
       >
-        Proveedores de juego
+        Nuestros proveedores
       </h2>
 
       {/*

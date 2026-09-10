@@ -9,8 +9,7 @@ import { useEffect, useId, useRef } from 'react'
  */
 import { IconoCerrar } from '@/components/atoms/iconos/IconoCerrar'
 import { IconoFlecha } from '@/components/atoms/iconos/IconoFlecha'
-import { Tag } from '@/components/atoms/Tag'
-import { dominioDe, JURISDICCIONES } from '@/utilidades/jurisdicciones'
+import { dominioDe, PLATAFORMAS } from '@/utilidades/jurisdicciones'
 
 /**
  * El selector de plataforma: la unica pantalla que manda afuera del blog.
@@ -28,11 +27,28 @@ import { dominioDe, JURISDICCIONES } from '@/utilidades/jurisdicciones'
  * toca a un login sin contexto. El destino es la portada de la plataforma, que
  * es adonde hay que llegar igual.
  *
- * Salen las cuatro y no solo la del premio: quien mira un premio de CABA puede
+ * Salen las cinco y no solo la del premio: quien mira un premio de CABA puede
  * jugar en San Luis, y esconderle su plataforma para destacar la otra seria
  * ordenar la pantalla en contra de para que la abrio. La del premio va primera
- * en jerarquia visual —marcada y con el borde encendido—, no en orden: la lista
- * conserva siempre el mismo, asi no baila entre una tarjeta y otra.
+ * en jerarquia visual —es la unica pintada de azul marca lleno—, no en orden:
+ * la lista conserva siempre el mismo, asi no baila entre una tarjeta y otra.
+ *
+ * Cinco y no cuatro: la lista sale de `PLATAFORMAS` y no de `JURISDICCIONES`.
+ * Santa Fe no publica ganadores, asi que no aporta premios a la portada, pero
+ * se juega igual y hay que poder elegirla. Este modal pregunta adonde ir, no de
+ * donde salio el dato: la lista correcta es la de destinos.
+ *
+ * **Cada fila dice una sola cosa: "Jugadon <jurisdiccion>".** Antes cargaba
+ * ademas el dominio y, en una de las cuatro, un tag: cuatro filas de dos lineas
+ * con una distinta obligan a leer una lista donde solo hay que elegir. El
+ * dominio no se perdio, se movio al nombre accesible del enlace —sigue estando
+ * para quien navega a ciegas, que es quien mas lo necesitaba—, y lo que el tag
+ * decia lo dice ahora el relleno azul y la bajada del encabezado.
+ *
+ * El azul de marca es el material de la lista y no un acento: encabezado
+ * velado, filas veladas, y el hover las lleva al azul lleno. El naranja de
+ * accion no aparece —el manual da un solo elemento de accion por pantalla y
+ * aca las acciones son cuatro y equivalentes—.
  *
  * La maqueta sigue al `PanelDeFiltros`, que es el otro dialogo del sitio: velo
  * que tambien cierra, `Escape`, scroll del fondo bloqueado y foco adentro.
@@ -78,6 +94,14 @@ export function ModalDePlataformas({ motivo, onCerrar }: ModalDePlataformasProps
   const idTitulo = useId()
   const idDescripcion = useId()
 
+  /*
+   * Solo el premio lleva bajada, y por eso se calcula aca: `aria-describedby`
+   * apuntando a un id que no existe en el DOM no describe nada, y algunos
+   * lectores anuncian el hueco. Sin bajada, el dialogo se describe solo con su
+   * titulo.
+   */
+  const hayBajada = motivo.tipo === 'premio'
+
   useEffect(() => {
     const alTeclear = (evento: KeyboardEvent) => {
       if (evento.key === 'Escape') onCerrar()
@@ -111,7 +135,7 @@ export function ModalDePlataformas({ motivo, onCerrar }: ModalDePlataformasProps
 
   return (
     <div
-      aria-describedby={idDescripcion}
+      aria-describedby={hayBajada ? idDescripcion : undefined}
       aria-labelledby={idTitulo}
       aria-modal
       className="fixed inset-0 z-50 flex items-end justify-center md:items-center"
@@ -137,41 +161,48 @@ export function ModalDePlataformas({ motivo, onCerrar }: ModalDePlataformasProps
        * lo que el teclado necesita ver.
        */}
       <div
-        className="relative flex max-h-[90dvh] w-full flex-col border border-hairline bg-superficie focus:outline-none md:max-h-[80dvh] md:max-w-[520px] md:rounded-caja"
+        className="relative flex max-h-[90dvh] w-full flex-col border border-azul-contorno bg-superficie focus:outline-none md:max-h-[80dvh] md:max-w-[520px] md:rounded-caja"
         ref={panel}
         tabIndex={-1}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-hairline px-4 py-4 md:px-6">
-          <div>
-            <h2 className="font-util text-menu text-tinta uppercase" id={idTitulo}>
-              {ENCABEZADOS[motivo.tipo].titulo}
-            </h2>
+        {/*
+         * Centrado de verdad: el boton de cerrar sale del flujo y el mismo
+         * hueco queda reservado a los dos lados, asi el titulo cae en el eje
+         * del panel y no corrido a la izquierda. El hueco es el ancho que ocupa
+         * el boton (20px de icono + 16px de area tactil) mas su separacion del
+         * borde, y por eso crece con el `px` del panel en escritorio.
+         */}
+        <header className="relative border-b border-azul-contorno bg-azul-velo px-12 py-5 text-center md:px-14">
+          <h2 className="font-util text-menu text-tinta uppercase" id={idTitulo}>
+            {ENCABEZADOS[motivo.tipo].titulo}
+          </h2>
 
-            {/*
-             * La bajada no es decorativa en ninguno de los tres casos. Con un
-             * premio, lo nombra para que el modal no se lea como un menu
-             * suelto: quien lo abrio venia mirando una tarjeta puntual y tiene
-             * que reconocerla aca adentro. Con los botones de cuenta, avisa lo
-             * que no se ve venir —que la cuenta no es del blog sino de cada
-             * plataforma— antes de que alguien busque su usuario donde no esta.
-             */}
+          {/*
+           * La bajada quedo solo para el premio, que es el unico caso donde
+           * dice algo que la pantalla no muestra: nombra la tarjeta que se
+           * acaba de tocar, para que el modal no se lea como un menu suelto.
+           *
+           * En los dos botones de cuenta se fue. Explicaba que la cuenta es de
+           * cada plataforma y no del blog, pero eso ya lo dice la lista misma:
+           * bajo el titulo "Crear cuenta" hay cuatro plataformas y ningun campo
+           * de registro. Dos renglones para adelantar lo que se ve un centimetro
+           * mas abajo son dos renglones que se leen antes de poder elegir.
+           */}
+          {hayBajada ? (
             <p className="mt-2 text-legal text-parrafo" id={idDescripcion}>
-              {motivo.tipo === 'premio' ? (
-                <>
-                  El premio de {motivo.premio} se pagó en Jugadon {motivo.jurisdiccion}. Elegí en
-                  qué plataforma querés jugar.
-                </>
-              ) : motivo.tipo === 'ingresar' ? (
-                'Tu cuenta es de la plataforma donde te registraste, no del blog. Elegí la jurisdicción para entrar.'
-              ) : (
-                'Cada jurisdicción tiene su propia plataforma y su propia cuenta. Elegí dónde querés registrarte.'
-              )}
+              El premio de {motivo.premio} se pagó en Jugadon {motivo.jurisdiccion}.
             </p>
-          </div>
+          ) : null}
 
           <button
             aria-label="Cerrar"
-            className="-mt-1 -mr-2 shrink-0 cursor-pointer p-2 text-parrafo transition-colors duration-150 ease-marca hover:text-tinta"
+            /*
+             * `top-2` y no centrado a mano: deja el icono a la altura de la
+             * linea del titulo, que es donde el ojo lo busca. Centrarlo en el
+             * alto del header lo bajaria cuando aparece la bajada del premio y
+             * quedaria flotando al lado de un renglon que no es el suyo.
+             */
+            className="absolute top-2 right-2 cursor-pointer p-2 text-parrafo transition-colors duration-150 ease-marca hover:text-tinta md:right-4"
             onClick={onCerrar}
             type="button"
           >
@@ -179,21 +210,30 @@ export function ModalDePlataformas({ motivo, onCerrar }: ModalDePlataformasProps
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-4 py-5 md:px-6">
-          <ul className="flex flex-col gap-3">
-            {JURISDICCIONES.map((jurisdiccion) => {
+        <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-5">
+          <ul className="flex flex-col gap-2">
+            {PLATAFORMAS.map((plataforma) => {
               const esLaDelPremio =
-                motivo.tipo === 'premio' && jurisdiccion.nombre === motivo.jurisdiccion
+                motivo.tipo === 'premio' && plataforma.nombre === motivo.jurisdiccion
 
               return (
-                <li key={jurisdiccion.nombre}>
+                <li key={plataforma.nombre}>
                   <a
-                    className={`group flex items-center gap-4 rounded-caja border px-4 py-3 no-underline transition-colors duration-150 ease-marca hover:border-accion hover:bg-elevada ${
+                    /*
+                     * El dominio vive aca y no en pantalla. Sigue siendo un
+                     * salto afuera del blog y a una plataforma de dinero real,
+                     * asi que decir adonde va no es opcional; lo que cambio es
+                     * que dejo de ser un renglon gris debajo de cada nombre
+                     * —cuatro dominios que solo se diferencian en una palabra—
+                     * para ser el nombre accesible del enlace.
+                     */
+                    aria-label={`Jugadon ${plataforma.nombre}. Abre ${dominioDe(plataforma)} en una pestaña nueva.`}
+                    className={`group flex items-center justify-between gap-4 rounded-caja border px-4 py-3.5 no-underline transition-colors duration-150 ease-marca ${
                       esLaDelPremio
-                        ? 'border-accion-contorno bg-elevada'
-                        : 'border-hairline bg-transparent'
+                        ? 'border-marca bg-marca hover:border-marca-hover hover:bg-marca-hover'
+                        : 'border-azul-contorno bg-azul-velo hover:border-marca hover:bg-marca'
                     }`}
-                    href={jurisdiccion.sitio}
+                    href={plataforma.sitio}
                     /*
                      * `sponsored` porque apunta a la plataforma que comercializa
                      * el juego, y `noopener` porque abre en otra pestania. Es el
@@ -202,30 +242,15 @@ export function ModalDePlataformas({ motivo, onCerrar }: ModalDePlataformasProps
                     rel="nofollow sponsored noopener"
                     target="_blank"
                   >
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className="font-display text-card text-tinta">
-                          Jugadon {jurisdiccion.nombre}
-                        </span>
-
-                        {/*
-                         * Sin `href`: es una etiqueta que dice de donde salio el
-                         * premio, no un filtro que lleve a ningun lado.
-                         */}
-                        {esLaDelPremio ? <Tag>Este premio</Tag> : null}
-                      </span>
-
-                      {/*
-                       * El dominio a la vista: es un salto afuera del blog y a
-                       * una plataforma de dinero real. Que se vea adonde va
-                       * antes de tocar es lo minimo.
-                       */}
-                      <span className="mt-1 block truncate font-util text-meta text-apagado">
-                        {dominioDe(jurisdiccion)}
-                      </span>
+                    <span className="min-w-0 truncate font-display text-card text-tinta">
+                      Jugadon {plataforma.nombre}
                     </span>
 
-                    <IconoFlecha className="size-5 shrink-0 text-parrafo transition-colors duration-150 ease-marca group-hover:text-accion" />
+                    <IconoFlecha
+                      className={`size-5 shrink-0 transition-colors duration-150 ease-marca group-hover:text-tinta ${
+                        esLaDelPremio ? 'text-tinta' : 'text-parrafo'
+                      }`}
+                    />
                   </a>
                 </li>
               )
@@ -238,7 +263,7 @@ export function ModalDePlataformas({ motivo, onCerrar }: ModalDePlataformasProps
          * mande a una plataforma. No es una formula: este modal es,
          * literalmente, el paso previo a ir a jugar con dinero real.
          */}
-        <footer className="border-t border-hairline px-4 py-4 md:px-6">
+        <footer className="border-t border-azul-contorno px-4 py-4 md:px-6">
           <p className="font-util text-legal text-apagado">
             Solo para mayores de 18 años. Jugá de forma responsable.
           </p>

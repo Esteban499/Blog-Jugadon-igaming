@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from 'react'
 
 // Archivos directos y no barril: este componente es cliente. Ver `atoms/index.ts`.
 import { Esqueleto } from '@/components/atoms/Esqueleto'
+import { BloqueCta } from '@/components/molecules/BloqueCta'
 import { TarjetaGanador } from '@/components/molecules/TarjetaGanador'
 import { TarjetaPremioMayor } from '@/components/molecules/TarjetaPremioMayor'
 import type { Ganador } from '@/utilidades/ultimos-ganadores'
 
 import { CarruselDeGanadores } from './CarruselDeGanadores'
-import { ModalDePlataformas } from './ModalDePlataformas'
+import { ModalDePlataformas, type MotivoDePlataformas } from './ModalDePlataformas'
 
 /**
  * Los treinta premios mas altos de las cuatro plataformas, arriba de la cinta
@@ -40,6 +41,10 @@ import { ModalDePlataformas } from './ModalDePlataformas'
  * en cada tarjeta. Con treinta tarjetas, un `abierto` por tarjeta serian treinta
  * estados que pueden quedar abiertos a la vez; con uno solo, elegir otra tarjeta
  * reemplaza el modal en lugar de apilarlo.
+ *
+ * Ese unico estado guarda el motivo y no el ganador porque el modal ya no lo
+ * abren solo las tarjetas: el bloque de cierre lo abre para crear cuenta, sin
+ * premio detras. Ver `MotivoDePlataformas`.
  */
 
 /** Cuantas columnas dibuja el esqueleto mientras llegan los premios. */
@@ -101,21 +106,21 @@ function EsqueletoDeGanadores() {
 
 export function UltimosGanadores() {
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' })
-  /** El premio cuya tarjeta se toco, o `null` con el modal cerrado. */
-  const [seleccionado, setSeleccionado] = useState<Ganador | null>(null)
+  /** Por que esta abierto el modal, o `null` con el modal cerrado. */
+  const [motivo, setMotivo] = useState<MotivoDePlataformas | null>(null)
 
   /** Cuando se leyo por ultima vez, para no repetir antes de tiempo. */
   const ultimaLectura = useRef(0)
 
   /*
-   * El mismo dato que `seleccionado`, pero en ref: el listener de visibilidad
+   * El mismo dato que `motivo`, pero en ref: el listener de visibilidad
    * se registra una sola vez y necesita leer el valor del momento en que se
    * dispara, no el que habia cuando se suscribio.
    */
   const hayModalAbierto = useRef(false)
   useEffect(() => {
-    hayModalAbierto.current = seleccionado !== null
-  }, [seleccionado])
+    hayModalAbierto.current = motivo !== null
+  }, [motivo])
 
   useEffect(() => {
     const controlador = new AbortController()
@@ -237,7 +242,13 @@ export function UltimosGanadores() {
                   juego={mayor.juego}
                   jugador={mayor.jugador}
                   jurisdiccion={mayor.jurisdiccion}
-                  onSeleccionar={() => setSeleccionado(mayor)}
+                  onSeleccionar={() =>
+                    setMotivo({
+                      tipo: 'premio',
+                      jurisdiccion: mayor.jurisdiccion,
+                      premio: mayor.premio,
+                    })
+                  }
                   premio={mayor.premio}
                 />
               ) : null}
@@ -250,7 +261,13 @@ export function UltimosGanadores() {
                       juego={ganador.juego}
                       jugador={ganador.jugador}
                       jurisdiccion={ganador.jurisdiccion}
-                      onSeleccionar={() => setSeleccionado(ganador)}
+                      onSeleccionar={() =>
+                        setMotivo({
+                          tipo: 'premio',
+                          jurisdiccion: ganador.jurisdiccion,
+                          premio: ganador.premio,
+                        })
+                      }
                       premio={ganador.premio}
                     />
                   </li>
@@ -258,6 +275,31 @@ export function UltimosGanadores() {
               </CarruselDeGanadores>
             </div>
           )}
+        </div>
+
+        {/*
+         * El cierre de la seccion: lo unico naranja de la portada.
+         *
+         * Va aca y no en `page.tsx` porque es el remate de esta vitrina —los
+         * premios de arriba salieron de estas plataformas— y porque el modal
+         * que abre ya vive en este componente. Que este adentro tiene ademas
+         * una consecuencia buena: sin premios no hay seccion, y sin seccion
+         * tampoco hay un bloque invitando a jugar sobre un hueco vacio.
+         *
+         * No navega. El sitio no tiene cuentas propias —son de cada
+         * plataforma—, asi que crear una empieza por elegir jurisdiccion, que
+         * es exactamente lo que preguntan los botones de cuenta de la navbar
+         * con este mismo motivo. Ver `ModalDePlataformas`.
+         */}
+        <div className="mt-12 md:mt-16">
+          <BloqueCta
+            etiqueta="Creá tu cuenta"
+            onClick={() => setMotivo({ tipo: 'registro' })}
+            titulo="Los premios son reales. El próximo puede ser tuyo"
+          >
+            Todo lo de arriba se pagó en las plataformas de Jugadón. Elegí la de tu provincia, creá
+            tu cuenta y jugá.
+          </BloqueCta>
         </div>
       </div>
 
@@ -268,16 +310,7 @@ export function UltimosGanadores() {
        * el foco corra al abrir y al cerrar, que es justo lo que hace montar y
        * desmontar.
        */}
-      {seleccionado ? (
-        <ModalDePlataformas
-          motivo={{
-            tipo: 'premio',
-            jurisdiccion: seleccionado.jurisdiccion,
-            premio: seleccionado.premio,
-          }}
-          onCerrar={() => setSeleccionado(null)}
-        />
-      ) : null}
+      {motivo ? <ModalDePlataformas motivo={motivo} onCerrar={() => setMotivo(null)} /> : null}
     </section>
   )
 }
