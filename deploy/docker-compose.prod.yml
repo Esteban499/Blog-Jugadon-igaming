@@ -1,4 +1,7 @@
-# Produccion en una VM: Postgres, la app y Caddy delante con TLS.
+# Produccion en una VM con aaPanel: Postgres y la app.
+#
+# Adelante va el Nginx de aaPanel, configurado con `nginx-aapanel.conf`: termina
+# TLS y le pasa los pedidos a la app por el loopback. Aca no hay proxy propio.
 #
 # No se levanta a mano: lo corre `desplegar.sh` a traves del gestor de
 # secretos. Ver "Produccion en una VM" en el README.
@@ -8,7 +11,7 @@
 # `${VAR:?}` hace que compose se niegue a arrancar si alguno no llego, en vez
 # de levantar un servicio con la variable vacia.
 #
-# La configuracion que NO es secreta (dominio, bucket, URLs publicas) vive en
+# La configuracion que NO es secreta (bucket, URLs publicas, puertos) vive en
 # `produccion.env`, versionada, para que se revise como el resto del codigo.
 
 name: jugadon
@@ -25,8 +28,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}
     ports:
       # Solo en el loopback de la VM. Lo usan el build de la imagen, que corre
-      # fuera de la red de compose, y los respaldos. Nunca expuesto afuera.
-      - "127.0.0.1:5432:5432"
+      # fuera de la red de compose, y los respaldos. Nunca expuesto afuera. Si
+      # aaPanel ya tiene un PostgreSQL propio en el 5432, se cambia
+      # PUERTO_POSTGRES en produccion.env.
+      - "127.0.0.1:${PUERTO_POSTGRES:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -39,8 +44,8 @@ services:
     image: jugadon-web:latest
     build:
       context: ../apps/web
-      # El build prerenderiza contra la base, que para el build es
-      # 127.0.0.1:5432: el puerto que postgres publica en el loopback.
+      # El build prerenderiza contra la base, que para el build es el puerto
+      # que postgres publica en el loopback.
       network: host
       args:
         NEXT_PUBLIC_SERVER_URL: ${NEXT_PUBLIC_SERVER_URL:?falta NEXT_PUBLIC_SERVER_URL}
@@ -55,36 +60,24 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    ports:
+      # Solo en el loopback: la unica puerta desde afuera es el Nginx de
+      # aaPanel. Al estar atado a 127.0.0.1, tampoco lo abre el atajo con el
+      # que Docker se saltea el firewall del sistema. Si se cambia
+      # PUERTO_WEB, cambiar tambien `proxy_pass` en nginx-aapanel.conf.
+      - "127.0.0.1:${PUERTO_WEB:-3000}:3000"
     env_file: produccion.env
     environment:
       DATABASE_URI: postgres://jugadon:${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}@postgres:5432/jugadon
       PAYLOAD_SECRET: ${PAYLOAD_SECRET:?falta PAYLOAD_SECRET}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?falta S3_ACCESS_KEY_ID}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?falta S3_SECRET_ACCESS_KEY}
-    # Sin `ports`: a la app solo llega Caddy, por la red interna de compose.
     healthcheck:
       test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:3000/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
-
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    depends_on:
-      - web
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    environment:
-      DOMINIO: ${DOMINIO:?falta DOMINIO}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      # Certificados de Let's Encrypt. Los genera y renueva Caddy solo.
-      - caddy-data:/data
-      - caddy-config:/config
 
 # Secretos del BUILD. Salen del entorno de `docker compose` y entran al RUN del
 # Dockerfile como montajes de BuildKit, sin quedar en la imagen.
@@ -96,5 +89,3 @@ secrets:
 
 volumes:
   postgres-data:
-  caddy-data:
-  caddy-config:

@@ -5,7 +5,7 @@ proceso, PostgreSQL y almacenamiento S3.
 
 | Capa | Local | Produccion |
 | --- | --- | --- |
-| App + CMS | `next dev` en :3000 | contenedor `web` en una VM, detras de Caddy |
+| App + CMS | `next dev` en :3000 | contenedor `web` en una VM con aaPanel, detras de su Nginx |
 | Base de datos | Postgres en Docker, :5433 | Postgres en Docker, en la misma VM |
 | Archivos | MinIO en Docker, :9000 | Cloudflare R2 |
 
@@ -17,7 +17,7 @@ entorno, no codigo.
 
 ## Arrancar
 
-Requisitos: Node >= 20, pnpm, Docker.
+Requisitos: Node 24 (minimo 22.18, ver `.nvmrc`), pnpm 11, Docker.
 
 ```bash
 docker compose up -d          # Postgres + MinIO + creacion del bucket
@@ -879,16 +879,29 @@ cd apps/web && pnpm seed
 
 ## Produccion en una VM
 
-Una sola maquina virtual, administrada como si fuera on-premise: nada de
-plataforma gestionada para la app. Todo corre en Docker Compose, desde
-`deploy/`:
+Una sola maquina virtual, administrada con aaPanel como si fuera on-premise.
+aaPanel pone el Nginx de adelante, el certificado y el firewall; la app y la
+base corren en Docker Compose, desde `deploy/`:
 
 | Pieza | Donde | Expuesta |
 | --- | --- | --- |
-| Caddy | contenedor `caddy` | 80 y 443. TLS de Let's Encrypt, automatico |
-| App + panel | contenedor `web` (`apps/web/Dockerfile`) | No: solo la ve Caddy |
-| Postgres 16 | contenedor `postgres`, volumen `postgres-data` | Solo `127.0.0.1:5432` de la VM |
+| Nginx | el de aaPanel, con `deploy/nginx-aapanel.conf` | 80 y 443. SSL de Let's Encrypt desde aaPanel |
+| App + panel | contenedor `web` (`apps/web/Dockerfile`) | Solo `127.0.0.1:3000`: la ve Nginx |
+| Postgres 16 | contenedor `postgres`, volumen `postgres-data` | Solo `127.0.0.1:5432` |
 | Archivos | Cloudflare R2 | URL publica del bucket |
+
+**Docker y no el "Proyecto Node" de aaPanel**, por dos motivos. El proyecto
+Node guarda las variables de entorno en la configuracion del panel, en el
+disco, que es justo lo que el esquema de [Secretos](#secretos) evita. Y el
+handler del bot de promociones se carga por ruta, sin pasar por el bundle:
+tiene que existir en el mismo lugar donde se compilo, y eso la imagen lo
+garantiza y un despliegue a mano no.
+
+**Node 24**, fijado en `.nvmrc`. El minimo es 22.18, y esta en `engines`:
+Next 16 pide 20.9, pero el handler del bot es un `.ts` que Node carga sin
+compilar, y recien desde 22.18 le saca los tipos solo. Con una version anterior
+el sitio anda y la corrida diaria falla, con el error escrito solo en el
+registro del job. La imagen ya trae Node 24: en la VM no hace falta instalarlo.
 
 R2 y no MinIO para los archivos: el proyecto de MinIO dejo de publicar
 imagenes de su edicion comunitaria, y un servicio de almacenamiento sin
@@ -952,23 +965,49 @@ abajo.
   arranque si en produccion falta un secreto o quedo uno de los de ejemplo del
   repo.
 
+### El sitio en aaPanel
+
+aaPanel pone Nginx, el certificado y el firewall. La app no se da de alta como
+"Proyecto Node": se crea un sitio comun y su Nginx se apunta a la app.
+
+1. **Docker.** Desde la tienda de aaPanel (Docker) o `docker-ce`. Hace falta
+   Docker Compose v2.24 o superior: `docker compose version`.
+2. **Sitio.** Website > Add site, con el dominio, PHP en "Static" y sin base de
+   datos: la base es la del compose.
+3. **SSL.** Con el DNS ya apuntando a la VM: pestania SSL > Let's Encrypt, y
+   "Force HTTPS".
+4. **Nginx.** Pestania "Config" del sitio:
+   - Borrar los dos bloques de estaticos que agrega aaPanel,
+     `location ~ .*\.(gif|jpg|jpeg|png|bmp|swf)$` y `location ~ .*\.(js|css)?$`.
+     Buscan los archivos en la carpeta del sitio, que esta vacia: los JS de
+     Next, los logos y las imagenes darian 404.
+   - Pegar `deploy/nginx-aapanel.conf` adentro del `server { }`.
+   - Reemplazar la IP de ejemplo por las de la oficina o la VPN. **Viene
+     cerrado a proposito**: con la base vacia, Payload muestra en `/admin` la
+     pantalla para crear el primer usuario, y el primero que llega queda de
+     admin.
+   - Guardar. aaPanel prueba la configuracion con `nginx -t` y no la aplica si
+     tiene errores.
+5. **No usar la pestania "Reverse proxy".** Arma un `location ^~ /` que le gana
+   a los bloques de `nginx-aapanel.conf` y deja `/admin` abierto.
+6. **Firewall** (Security): 80 y 443 abiertos; el puerto del panel y el 22,
+   solo desde las IPs de quienes administran. El 3000 y el 5432 no se abren:
+   igual escuchan solo en el loopback.
+7. **El panel.** Corre como root, asi que es la puerta mas valiosa de la VM:
+   segundo factor, "entrada de seguridad" (la URL secreta del panel), lista
+   blanca de IPs y siempre actualizado.
+
 ### Primer despliegue
 
-1. VM con Docker y Docker Compose v2.24 o superior. Firewall: 80 y 443
-   abiertos, SSH solo desde donde corresponda, nada mas.
-2. DNS del dominio apuntando a la VM, antes de levantar Caddy: sin eso no puede
-   sacar el certificado.
-3. Bucket de R2 creado, con el `.pmtiles` subido y el CORS que imprime
+1. VM con aaPanel, el DNS apuntando a ella y el sitio armado como arriba.
+2. Bucket de R2 creado, con el `.pmtiles` subido y el CORS que imprime
    `scripts/generar-mapa.sh`. Token con permiso solo sobre ese bucket.
-4. Completar `deploy/produccion.env`. El script no corre mientras quede un
+3. Completar `deploy/produccion.env`. El script no corre mientras quede un
    `CAMBIAR`.
-5. Cargar los secretos en el gestor.
-6. **Restringir `/admin` por IP en `deploy/Caddyfile` antes de levantar.**
-   Con la base vacia, Payload muestra en `/admin` la pantalla para crear el
-   primer usuario, y el primero que llega queda de admin.
-7. `<gestor> run -- bash deploy/desplegar.sh`
-8. Entrar a `/admin` y crear el usuario admin real.
-9. Cargar los datos iniciales. La imagen no trae `pnpm` ni los scripts, y las
+4. Cargar los secretos en el gestor.
+5. Por SSH, desde la carpeta del repo: `<gestor> run -- bash deploy/desplegar.sh`
+6. Entrar a `/admin` desde una IP habilitada y crear el usuario admin real.
+7. Cargar los datos iniciales. La imagen no trae `pnpm` ni los scripts, y las
    planillas de `PDV/` no tienen por que estar en la VM: se corren desde una
    compu del equipo, contra la base de produccion por un tunel SSH.
 

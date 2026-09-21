@@ -10,7 +10,8 @@ import { withPayload } from '@payloadcms/next/withPayload'
  * - La CSP es solo eso, no una politica completa: una de scripts rompe MapLibre
  *   (workers en `blob:`), el editor del panel (Monaco) y los embeds, y pide
  *   probarse pantalla por pantalla. Queda anotada como pendiente en el README.
- * - HSTS no va aca: lo pone el proxy que termina TLS (ver `deploy/Caddyfile`),
+ * - HSTS no va aca: lo pone el Nginx de aaPanel, que termina TLS (ver
+ *   `deploy/nginx-aapanel.conf`),
  *   que es el unico que sabe si la conexion vino por HTTPS.
  */
 const CABECERAS_DE_SEGURIDAD = [
@@ -82,9 +83,9 @@ const nextConfig = {
    * pedia el archivo a si mismo y el mapa no aparecia. Next reenvia el header
    * `Range` y devuelve el 206 tal cual, que es lo que necesita pmtiles.
    *
-   * En la VM de produccion `/mapa/*` lo atiende el proxy directo contra MinIO
-   * (ver `deploy/Caddyfile`) y esto queda de respaldo: 100 MB por rangos es
-   * trafico que conviene que no pase por el proceso de Node.
+   * En produccion `NEXT_PUBLIC_MAPA_TILES_URL` es la URL absoluta de R2 y el
+   * navegador lee el archivo directo de ahi, asi que esto no se usa: 100 MB
+   * por rangos es trafico que conviene que no pase por el proceso de Node.
    */
   async rewrites() {
     const bucket = process.env.NEXT_PUBLIC_S3_PUBLIC_URL

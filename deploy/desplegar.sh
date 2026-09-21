@@ -16,7 +16,7 @@
 #   1. Verifica que llegaron los secretos y que produccion.env esta completo.
 #   2. Levanta Postgres y, si la base ya tiene datos, la respalda.
 #   3. Construye la imagen: migra la base y compila (ver apps/web/Dockerfile).
-#   4. Reemplaza la app y deja Caddy corriendo.
+#   4. Reemplaza la app. El Nginx de aaPanel la encuentra en el loopback.
 #
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -48,6 +48,13 @@ if [[ ! "$POSTGRES_PASSWORD" =~ ^[A-Za-z0-9_-]{24,}$ ]]; then
   exit 1
 fi
 
+# Los puertos del loopback salen de produccion.env, igual que para compose.
+leer() { sed -n "s/^$1=//p" produccion.env | tr -d '\r'; }
+PUERTO_POSTGRES="$(leer PUERTO_POSTGRES)"
+PUERTO_POSTGRES="${PUERTO_POSTGRES:-5432}"
+PUERTO_WEB="$(leer PUERTO_WEB)"
+PUERTO_WEB="${PUERTO_WEB:-3000}"
+
 compose() { docker compose --env-file produccion.env -f docker-compose.prod.yml "$@"; }
 
 echo "==> Postgres"
@@ -65,9 +72,12 @@ fi
 
 echo "==> Imagen (migraciones + build)"
 # Para el build la base es el puerto publicado en el loopback, no el servicio.
-export DATABASE_URI_BUILD="postgres://jugadon:${POSTGRES_PASSWORD}@127.0.0.1:5432/jugadon"
+export DATABASE_URI_BUILD="postgres://jugadon:${POSTGRES_PASSWORD}@127.0.0.1:${PUERTO_POSTGRES}/jugadon"
 compose build web
 
-echo "==> App y proxy"
-compose up -d --wait web caddy
+echo "==> App"
+compose up -d --wait web
 compose ps
+
+echo
+echo "La app responde en 127.0.0.1:${PUERTO_WEB}; afuera sale por el Nginx de aaPanel."
