@@ -1,6 +1,6 @@
 import { FilaDeFiltros, type OpcionDeFiltro } from '@/components/molecules/FilaDeFiltros'
 import { PanelDeFiltros, type GrupoDeFiltros } from '@/components/organisms/PanelDeFiltros'
-import type { Plataforma } from '@/payload-types'
+import type { Plataforma, Promocion } from '@/payload-types'
 import {
   ETIQUETAS_DE_TIPO,
   ETIQUETAS_DE_VERTICAL,
@@ -24,6 +24,16 @@ import { rutaDePromociones } from '@/utilidades/rutas'
  * El resto de los filtros va adentro del panel. Volver a tocar uno ya puesto lo
  * saca, que es como se espera que funcione un chip; el de plataforma es la
  * excepcion, porque ahi no existe el estado "sin plataforma".
+ *
+ * En el panel solo aparecen las opciones que dejan algo en la grilla, contando
+ * lo que ya esta puesto: con "Deportes" elegido, "Cashback" se va si ningun
+ * cashback corre en deportes. Dos excepciones, a proposito:
+ *
+ * - La opcion puesta se ve siempre, aunque no tenga resultados. Es la unica
+ *   forma de sacarla, y puede llegar asi por un enlace viejo o compartido.
+ * - La fila de plataformas no se filtra. Es la eleccion principal, y esconder
+ *   una provincia por un filtro secundario dejaria a quien juega ahi sin forma
+ *   de llegar a sus bonos sin antes limpiar.
  */
 
 export interface SeleccionDePromociones {
@@ -33,13 +43,32 @@ export interface SeleccionDePromociones {
   vertical?: Vertical
 }
 
+/** Lo minimo de cada promocion para saber que opciones llevan a algun lado. */
+export type PromocionCandidata = Pick<Promocion, 'tipo' | 'verticales'>
+
 export interface FiltrosDePromocionesProps {
+  /**
+   * Las promociones de la plataforma elegida sin los filtros del panel. Son
+   * las mismas que puede mostrar la grilla: vigentes y sin las que ya salen en
+   * los banners.
+   */
+  candidatas: readonly PromocionCandidata[]
   plataformas: Plataforma[]
   seleccion: SeleccionDePromociones
 }
 
-export function FiltrosDePromociones({ plataformas, seleccion }: FiltrosDePromocionesProps) {
+export function FiltrosDePromociones({
+  candidatas,
+  plataformas,
+  seleccion,
+}: FiltrosDePromocionesProps) {
   const { plataforma, tipo, vertical } = seleccion
+
+  /** `true` si con este tipo y este vertical queda al menos una en la grilla. */
+  const dejaResultados = (t?: TipoDePromocion, v?: Vertical): boolean =>
+    candidatas.some(
+      (promo) => (!t || promo.tipo === t) && (!v || (promo.verticales ?? []).includes(v)),
+    )
 
   const opcionesDePlataforma: OpcionDeFiltro[] = plataformas.map((p) => ({
     clave: p.id,
@@ -52,32 +81,34 @@ export function FiltrosDePromociones({ plataformas, seleccion }: FiltrosDePromoc
   const grupos: GrupoDeFiltros[] = [
     {
       etiqueta: 'Tipo de bono',
-      opciones: TIPOS_DE_PROMOCION.map((t) => ({
-        clave: t,
-        nombre: ETIQUETAS_DE_TIPO[t],
-        href: rutaDePromociones({ plataforma, tipo: tipo === t ? undefined : t, vertical }),
-        activa: tipo === t,
-      })),
+      opciones: TIPOS_DE_PROMOCION.filter((t) => t === tipo || dejaResultados(t, vertical)).map(
+        (t) => ({
+          clave: t,
+          nombre: ETIQUETAS_DE_TIPO[t],
+          href: rutaDePromociones({ plataforma, tipo: tipo === t ? undefined : t, vertical }),
+          activa: tipo === t,
+        }),
+      ),
     },
     {
       etiqueta: 'Dónde se usa',
-      opciones: VERTICALES.map((v) => ({
+      opciones: VERTICALES.filter((v) => v === vertical || dejaResultados(tipo, v)).map((v) => ({
         clave: v,
         nombre: ETIQUETAS_DE_VERTICAL[v],
         href: rutaDePromociones({ plataforma, tipo, vertical: vertical === v ? undefined : v }),
         activa: vertical === v,
       })),
     },
-  ]
+  ].filter((grupo) => grupo.opciones.length > 0)
 
   return (
     <nav aria-label="Filtrar promociones" className="contenedor">
       <FilaDeFiltros
+        // Sin ninguna opcion que ofrecer, el boton abriria un panel vacio.
         antes={
-          <PanelDeFiltros
-            grupos={grupos}
-            hrefLimpiar={rutaDePromociones({ plataforma })}
-          />
+          grupos.length > 0 ? (
+            <PanelDeFiltros grupos={grupos} hrefLimpiar={rutaDePromociones({ plataforma })} />
+          ) : undefined
         }
         etiqueta="Plataforma"
         opciones={opcionesDePlataforma}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 /*
  * Imports a archivo y no al barril de `atoms` ni al de `molecules`: este
@@ -86,6 +87,83 @@ export function PanelDeFiltros({ grupos, hrefLimpiar }: PanelDeFiltrosProps) {
    */
   const clasesDelBoton = `${clasesDeTag({ seleccionado: activos > 0 })} cursor-pointer gap-2`
 
+  const dialogo = (
+    <div
+      aria-labelledby={idTitulo}
+      aria-modal
+      className="fixed inset-0 z-50 flex items-end justify-center md:items-center"
+      id={idPanel}
+      role="dialog"
+    >
+      {/* El velo tambien cierra. Es un boton y no un div con `onClick`
+          para que exista para el teclado y para el lector de pantalla. */}
+      <button
+        aria-label="Cerrar filtros"
+        className="absolute inset-0 cursor-default bg-fondo/85 backdrop-blur-md"
+        onClick={() => setAbierto(false)}
+        tabIndex={-1}
+        type="button"
+      />
+
+      <div
+        className="relative flex max-h-[90dvh] w-full flex-col border border-hairline bg-superficie md:max-h-[80dvh] md:max-w-[560px] md:rounded-caja"
+        ref={panel}
+        tabIndex={-1}
+      >
+        <header className="flex items-center justify-between gap-4 border-b border-hairline px-4 py-4 md:px-6">
+          <h2 className="font-util text-menu text-tinta uppercase" id={idTitulo}>
+            Filtros
+          </h2>
+
+          <button
+            aria-label="Cerrar filtros"
+            className="-mr-2 cursor-pointer p-2 text-parrafo transition-colors duration-150 ease-marca hover:text-tinta"
+            onClick={() => setAbierto(false)}
+            type="button"
+          >
+            <IconoCerrar className="size-5" />
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-4 py-6 md:px-6">
+          <div className="flex flex-col gap-6">
+            {grupos.map((grupo) => (
+              <div key={grupo.etiqueta}>
+                <p className="font-util text-meta text-apagado uppercase">{grupo.etiqueta}</p>
+
+                <ul className="mt-3 flex flex-wrap gap-3">
+                  {grupo.opciones.map((opcion) => (
+                    <li key={opcion.clave}>
+                      <Tag href={opcion.href} seleccionado={opcion.activa}>
+                        {opcion.nombre}
+                      </Tag>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <footer className="flex items-center justify-between gap-4 border-t border-hairline px-4 py-4 md:px-6">
+          {/* Sin nada elegido no hay nada que limpiar: el enlace apunta a
+              la pantalla en la que ya se esta. */}
+          {activos > 0 ? (
+            <Tag href={hrefLimpiar}>Limpiar</Tag>
+          ) : (
+            <span className="font-util text-meta text-apagado uppercase">Sin filtros</span>
+          )}
+
+          {/* No aplica nada: los filtros ya se aplicaron al tocarlos. Solo
+              saca el panel del medio para ver lo que quedo debajo. */}
+          <Boton onClick={() => setAbierto(false)} variante="primaria">
+            Ver promociones
+          </Boton>
+        </footer>
+      </div>
+    </div>
+  )
+
   return (
     <>
       <button
@@ -101,82 +179,15 @@ export function PanelDeFiltros({ grupos, hrefLimpiar }: PanelDeFiltrosProps) {
         {activos > 0 ? <span aria-label={`${activos} aplicados`}>·&nbsp;{activos}</span> : null}
       </button>
 
-      {abierto ? (
-        <div
-          aria-labelledby={idTitulo}
-          aria-modal
-          className="fixed inset-0 z-50 flex items-end justify-center md:items-center"
-          id={idPanel}
-          role="dialog"
-        >
-          {/* El velo tambien cierra. Es un boton y no un div con `onClick`
-              para que exista para el teclado y para el lector de pantalla. */}
-          <button
-            aria-label="Cerrar filtros"
-            className="absolute inset-0 cursor-default bg-fondo/85 backdrop-blur-md"
-            onClick={() => setAbierto(false)}
-            tabIndex={-1}
-            type="button"
-          />
-
-          <div
-            className="relative flex max-h-[90dvh] w-full flex-col border border-hairline bg-superficie md:max-h-[80dvh] md:max-w-[560px] md:rounded-caja"
-            ref={panel}
-            tabIndex={-1}
-          >
-            <header className="flex items-center justify-between gap-4 border-b border-hairline px-4 py-4 md:px-6">
-              <h2 className="font-util text-menu text-tinta uppercase" id={idTitulo}>
-                Filtros
-              </h2>
-
-              <button
-                aria-label="Cerrar filtros"
-                className="-mr-2 cursor-pointer p-2 text-parrafo transition-colors duration-150 ease-marca hover:text-tinta"
-                onClick={() => setAbierto(false)}
-                type="button"
-              >
-                <IconoCerrar className="size-5" />
-              </button>
-            </header>
-
-            <div className="flex-1 overflow-y-auto px-4 py-6 md:px-6">
-              <div className="flex flex-col gap-6">
-                {grupos.map((grupo) => (
-                  <div key={grupo.etiqueta}>
-                    <p className="font-util text-meta text-apagado uppercase">{grupo.etiqueta}</p>
-
-                    <ul className="mt-3 flex flex-wrap gap-3">
-                      {grupo.opciones.map((opcion) => (
-                        <li key={opcion.clave}>
-                          <Tag href={opcion.href} seleccionado={opcion.activa}>
-                            {opcion.nombre}
-                          </Tag>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <footer className="flex items-center justify-between gap-4 border-t border-hairline px-4 py-4 md:px-6">
-              {/* Sin nada elegido no hay nada que limpiar: el enlace apunta a
-                  la pantalla en la que ya se esta. */}
-              {activos > 0 ? (
-                <Tag href={hrefLimpiar}>Limpiar</Tag>
-              ) : (
-                <span className="font-util text-meta text-apagado uppercase">Sin filtros</span>
-              )}
-
-              {/* No aplica nada: los filtros ya se aplicaron al tocarlos. Solo
-                  saca el panel del medio para ver lo que quedo debajo. */}
-              <Boton onClick={() => setAbierto(false)} variante="primaria">
-                Ver promociones
-              </Boton>
-            </footer>
-          </div>
-        </div>
-      ) : null}
+      {/*
+       * El panel se dibuja en el `body` y no al lado del boton. El boton vive
+       * dentro de la fila de chips, que lleva la mascara de `desvanecer`, y una
+       * mascara arma su propio contexto de apilamiento y recorta todo lo que
+       * tiene adentro, `fixed` incluido: dibujado ahi, el panel se abria debajo
+       * del titulo de la pagina y fundido con la fila, y no se podia tocar
+       * nada. Solo se monta despues de un clic, asi que `document` ya existe.
+       */}
+      {abierto ? createPortal(dialogo, document.body) : null}
     </>
   )
 }

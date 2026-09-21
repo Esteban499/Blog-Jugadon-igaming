@@ -134,21 +134,23 @@ export default async function PromocionesPage({ searchParams }: PromocionesPageP
    *   un bono que ya vencio es exactamente lo que no se puede hacer, y filtrar
    *   por fecha lo cubre sin depender de cuando corrio el bot por ultima vez.
    */
+  const condicionesBase: Where[] = [
+    { _status: { equals: 'published' } },
+    { estado: { equals: 'activa' } },
+    {
+      or: [
+        { vigenciaHasta: { exists: false } },
+        { vigenciaHasta: { greater_than: new Date().toISOString() } },
+      ],
+    },
+    // Lo que ya esta dibujado en los banners de arriba no se repite abajo.
+    ...(cubiertasPorLosBanners.length > 0 ? [{ id: { not_in: cubiertasPorLosBanners } }] : []),
+    ...(elegida ? [{ plataforma: { equals: elegida.id } }] : []),
+  ]
+
   const where: Where = {
     and: [
-      { _status: { equals: 'published' } },
-      { estado: { equals: 'activa' } },
-      {
-        or: [
-          { vigenciaHasta: { exists: false } },
-          { vigenciaHasta: { greater_than: new Date().toISOString() } },
-        ],
-      },
-      // Lo que ya esta dibujado en los banners de arriba no se repite abajo.
-      ...(cubiertasPorLosBanners.length > 0
-        ? [{ id: { not_in: cubiertasPorLosBanners } }]
-        : []),
-      ...(elegida ? [{ plataforma: { equals: elegida.id } }] : []),
+      ...condicionesBase,
       ...(tipo ? [{ tipo: { equals: tipo } }] : []),
       // `in` sobre un `hasMany` es "alguno de sus verticales es este". Las
       // promociones cargadas a mano suelen no tener ninguno, y con el filtro
@@ -158,19 +160,35 @@ export default async function PromocionesPage({ searchParams }: PromocionesPageP
     ],
   }
 
-  const { docs: promociones } = await payload.find({
-    collection: 'promociones',
-    depth: 1,
-    limit: 50,
-    sort: ['-destacada', 'vigenciaHasta'],
-    where,
-  })
-
+  const [{ docs: promociones }, { docs: candidatas }] = await Promise.all([
+    payload.find({
+      collection: 'promociones',
+      depth: 1,
+      limit: 50,
+      sort: ['-destacada', 'vigenciaHasta'],
+      where,
+    }),
+    /*
+     * Las de la plataforma sin los filtros del panel, y solo con los dos campos
+     * que el panel filtra. De aca sale que chips vale la pena mostrar: uno que
+     * lleva a una grilla vacia es un callejon, y no era un caso raro. El bono
+     * de bienvenida y el de primer deposito salen en los banners, asi que sus
+     * chips no encontraban nunca nada. Son una docena por plataforma.
+     */
+    payload.find({
+      collection: 'promociones',
+      depth: 0,
+      pagination: false,
+      select: { tipo: true, verticales: true },
+      where: { and: condicionesBase },
+    }),
+  ])
 
   return (
     <PlantillaDeListado
       filtros={
         <FiltrosDePromociones
+          candidatas={candidatas}
           plataformas={plataformas}
           seleccion={{ plataforma: elegida?.slug ?? undefined, tipo, vertical }}
         />
