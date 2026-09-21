@@ -156,16 +156,11 @@ export function Navbar() {
           </button>
 
           <Link aria-label="Jugadon — Inicio" className="shrink-0" href="/">
-            {/* 80px en telefono contra los 120 de siempre: es lo que hay que
+            {/* 80px en telefono contra los 200 de escritorio: es lo que hay que
                 ceder para que los botones de cuenta entren en la barra sin
-                bajar de los 44px de area de toque. La caja recorta el mismo
-                encuadre en los dos tamanos, asi que no hay version aparte. */}
-            <LogoJugadon
-              alto={34}
-              ancho={120}
-              clasesDeCaja="h-[23px] w-[80px] lg:h-[34px] lg:w-[120px]"
-              prioridad
-            />
+                bajar de los 44px de area de toque. Es el mismo PNG escalado,
+                asi que no hay version aparte. */}
+            <LogoJugadon ancho={200} clasesDeCaja="w-[80px] lg:w-[200px]" prioridad />
           </Link>
 
           {/* La marca de un lado y la navegacion del otro: la barra tiene dos

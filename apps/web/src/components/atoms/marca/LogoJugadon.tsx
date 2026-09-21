@@ -1,8 +1,12 @@
 import Image from 'next/image'
 
-/** Tamano real del PNG exportado desde Figma. */
-const ANCHO_ORIGINAL = 1352
-const ALTO_ORIGINAL = 463
+/**
+ * Tamano real del PNG. Viene recortado al borde del wordmark, sin transparencia
+ * alrededor: si se reemplaza el archivo, hay que recortarlo igual o el logo
+ * queda chico y flotando dentro de su caja.
+ */
+const ANCHO_ORIGINAL = 699
+const ALTO_ORIGINAL = 103
 
 /**
  * Vive en `atoms/marca/` y no suelto en `atoms/` porque no es agnostico del
@@ -11,15 +15,17 @@ const ALTO_ORIGINAL = 463
  * mantiene honesta la regla de que un atomo suelto no conoce la marca.
  */
 export interface LogoJugadonProps {
-  /** Ancho de la caja del logo. 120 en la navbar, 150 en el footer. */
-  ancho: number
-  alto: number
   /**
-   * Caja en clases, para los tamanos que cambian con el ancho de pantalla.
+   * Ancho del logo. 200 en la navbar y en el footer. El alto sale de la
+   * proporcion del PNG, asi que no se declara.
+   */
+  ancho: number
+  /**
+   * Ancho en clases, para los tamanos que cambian con el ancho de pantalla.
    *
-   * Cuando viene, reemplaza al `style` en lugar de sumarse: una regla en linea
-   * le gana a cualquier clase, asi que conviviendo las dos el `lg:` no cambiaria
-   * nada. `ancho` y `alto` siguen haciendo falta —son el tamano mayor de los
+   * Cuando viene, reemplaza al ancho en linea en lugar de sumarse: una regla en
+   * linea le gana a cualquier clase, asi que conviviendo las dos el `lg:` no
+   * cambiaria nada. `ancho` sigue haciendo falta —es el mayor de los
    * declarados, del que sale el `sizes` del `next/image`—.
    */
   clasesDeCaja?: string
@@ -27,28 +33,17 @@ export interface LogoJugadonProps {
   prioridad?: boolean
 }
 
-/**
- * El PNG exportado trae bastante transparencia alrededor del wordmark, asi que
- * dibujarlo tal cual dentro de la caja del diseno lo deja chico y flotando.
- * El prototipo lo resuelve recortando: escala la imagen al 139.51% x 168.25% de
- * la caja y la corre, dejando visible solo el wordmark. Al ser todo porcentajes
- * el mismo encuadre sirve para los dos tamanos.
- */
-export function LogoJugadon({ ancho, alto, clasesDeCaja, prioridad = false }: LogoJugadonProps) {
+export function LogoJugadon({ ancho, clasesDeCaja, prioridad = false }: LogoJugadonProps) {
   return (
-    <span
-      className={`relative block overflow-hidden ${clasesDeCaja ?? ''}`.trim()}
-      style={clasesDeCaja ? undefined : { width: ancho, height: alto }}
-    >
-      <Image
-        alt="Jugadon"
-        className="absolute top-[-36.3%] left-[-20.99%] h-[168.25%] w-[139.51%] max-w-none"
-        height={ALTO_ORIGINAL}
-        priority={prioridad}
-        sizes={`${Math.round(ancho * 1.4)}px`}
-        src="/marca/logo-jugadon.png"
-        width={ANCHO_ORIGINAL}
-      />
-    </span>
+    <Image
+      alt="Jugadon"
+      className={`block h-auto ${clasesDeCaja ?? ''}`.trim()}
+      height={ALTO_ORIGINAL}
+      priority={prioridad}
+      sizes={`${ancho}px`}
+      src="/marca/logo-jugadon.png"
+      style={clasesDeCaja ? undefined : { width: ancho }}
+      width={ANCHO_ORIGINAL}
+    />
   )
 }

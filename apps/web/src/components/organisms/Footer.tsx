@@ -162,7 +162,7 @@ export function Footer() {
         {/* Marca de un lado, redes del otro. Se apila centrado mientras no
             entre en una linea. */}
         <div className="flex flex-col items-center gap-8 md:flex-row md:justify-between">
-          <LogoJugadon alto={43} ancho={150} />
+          <LogoJugadon ancho={200} />
 
           <div className="flex flex-col items-center gap-3 md:items-end">
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 md:justify-end">
