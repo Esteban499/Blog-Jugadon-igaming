@@ -140,3 +140,13 @@ export const esTipoDePunto = (valor?: string): valor is TipoDePunto =>
 
 export const esProvincia = (valor?: string): valor is Provincia =>
   typeof valor === 'string' && (PROVINCIAS as readonly string[]).includes(valor)
+
+/**
+ * La etiqueta con la que se cachea el directorio entero de `/puntos-de-venta`.
+ *
+ * La leen dos lados: la pagina, que la pone sobre su consulta, y la coleccion,
+ * que la invalida cuando alguien guarda un punto en el panel. Escrita dos
+ * veces, una errata en cualquiera de los dos dejaba el mapa mostrando datos
+ * viejos sin que nada fallara.
+ */
+export const ETIQUETA_DE_CACHE_DE_PUNTOS = 'puntos-de-venta'

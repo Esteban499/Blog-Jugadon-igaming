@@ -226,12 +226,13 @@ export const jugadonSircms: Adaptador = async ({ url, urlApi, plataforma }) => {
       vigenciaDesde: fechaUtc(p.date_start),
       vigenciaHasta,
       /**
-       * El listado de la plataforma, no una ficha propia: estas promociones no
-       * tienen URL publica individual. Probado contra `/promotion/<slug>`,
-       * `/promotions/<slug>` y `/promotion/detail/<slug>`, las tres dan 404;
-       * `/promotion/` es una pagina real, con su titulo de SEO, que las lista.
+       * El listado de bonos de la plataforma, no una ficha propia: estas
+       * promociones no tienen URL publica individual. Probado contra
+       * `/promotion/<slug>`, `/promotions/<slug>` y `/promotion/detail/<slug>`,
+       * las tres dan 404. Se manda a `/bonus-campaign/`, que es donde la
+       * plataforma quiere que se canjeen.
        */
-      urlDestino: `${sitio}/promotion/`,
+      urlDestino: `${sitio}/bonus-campaign/`,
       imagen: texto(p.image),
     })
   }

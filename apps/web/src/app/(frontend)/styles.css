@@ -417,6 +417,98 @@
   }
 }
 
+/*
+ * Desvanecido de los bordes de una pista con scroll horizontal.
+ *
+ * Con la barra oculta, lo unico que avisaba que la fila seguia era una tarjeta
+ * cortada contra el borde, y un corte recto se lee igual como "aca termina".
+ * El desvanecido es la senal: el borde detras del cual queda contenido se
+ * funde, y el que ya no tiene nada detras queda neto. Al arrancar solo se
+ * funde la derecha; al llegar al final, solo la izquierda.
+ *
+ * Es CSS puro para que sirva igual en las pistas de servidor —la fila de
+ * filtros, las tablas del articulo— que en los carruseles cliente: el ancho de
+ * cada borde lo mueve una animacion atada al scroll de la propia pista, no un
+ * listener. Cada borde aparece o se apaga a lo largo de los primeros o los
+ * ultimos `--desvanecer-ancho` pixeles de recorrido, asi que nunca salta.
+ *
+ * Una pista que no desborda no tiene linea de tiempo activa: la animacion no
+ * corre, los dos bordes quedan en cero y no se funde nada.
+ *
+ * Es mascara y no un degradado pintado encima por lo mismo que `.marquesina`:
+ * funde contra lo que haya detras —el fondo, o la portada sobre la que trepan
+ * las noticias— sin tener que saber de que color es.
+ *
+ * Todo va dentro de `@supports`. Sin lineas de tiempo de scroll la animacion
+ * correria como una comun de duracion cero, saltaria a su ultimo fotograma y
+ * dejaria el borde izquierdo fundido para siempre. Donde no hay soporte, la
+ * pista queda exactamente como estaba.
+ */
+
+/* Registradas para que se interpolen: una variable sin registrar no anima,
+ * salta de un valor al otro a mitad de camino. */
+@property --desvanecer-izq {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --desvanecer-der {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@utility desvanecer {
+  --desvanecer-ancho: 48px;
+
+  @media (width >= 768px) {
+    --desvanecer-ancho: 80px;
+  }
+
+  @supports (animation-timeline: scroll()) {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--desvanecer-izq),
+      #000 calc(100% - var(--desvanecer-der)),
+      transparent 100%
+    );
+
+    /* Linea de tiempo con nombre y no `scroll(self)`, que llego mas tarde a
+     * los navegadores: la pista la declara y la consume ella misma. */
+    scroll-timeline: --desvanecer inline;
+
+    /* Longhands y `animation-timeline` al final: el shorthand `animation`
+     * la resetea, y escrito despues la anularia. */
+    animation-name: desvanecer-izq, desvanecer-der;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-range-start: 0px, calc(100% - var(--desvanecer-ancho));
+    animation-range-end: var(--desvanecer-ancho), 100%;
+    animation-timeline: --desvanecer;
+  }
+}
+
+@keyframes desvanecer-izq {
+  from {
+    --desvanecer-izq: 0px;
+  }
+  to {
+    --desvanecer-izq: var(--desvanecer-ancho);
+  }
+}
+
+@keyframes desvanecer-der {
+  from {
+    --desvanecer-der: var(--desvanecer-ancho);
+  }
+  to {
+    --desvanecer-der: 0px;
+  }
+}
+
 /* ------------------------------------------------------------------------- */
 /* GRADIENTES (§2.4) — tres, y con moderacion                                */
 /* ------------------------------------------------------------------------- */
@@ -804,6 +896,10 @@
     max-width: none;
     margin-block: 32px;
     overflow-x: auto;
+
+    /* Con barra a la vista, pero en movil la barra es fina y desaparece al
+     * soltar: el borde desvanecido es lo que avisa que hay mas columnas. */
+    @apply desvanecer;
   }
 
   .prosa table {

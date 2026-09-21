@@ -1,7 +1,62 @@
 import { withPayload } from '@payloadcms/next/withPayload'
 
+/*
+ * Cabeceras de seguridad para todas las respuestas, sitio y panel.
+ *
+ * - `frame-ancestors 'self'` y `X-Frame-Options`: nadie puede meter el panel ni
+ *   el sitio en un iframe ajeno para hacerle clickjacking a una sesion abierta.
+ *   `'self'` y no `'none'` porque la vista previa en vivo del panel dibuja el
+ *   sitio adentro de un iframe del mismo origen.
+ * - La CSP es solo eso, no una politica completa: una de scripts rompe MapLibre
+ *   (workers en `blob:`), el editor del panel (Monaco) y los embeds, y pide
+ *   probarse pantalla por pantalla. Queda anotada como pendiente en el README.
+ * - HSTS no va aca: lo pone el proxy que termina TLS (ver `deploy/Caddyfile`),
+ *   que es el unico que sabe si la conexion vino por HTTPS.
+ */
+const CABECERAS_DE_SEGURIDAD = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  { key: 'Content-Security-Policy', value: "frame-ancestors 'self'; object-src 'none'; base-uri 'self'" },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), payment=(), usb=()' },
+]
+
+/*
+ * El bucket como origen de imagenes remotas, armado desde la misma variable que
+ * usa el reenvio de `/mapa/*`. Antes estaba escrito a mano como
+ * `http://localhost:9000`, que en produccion era un patron muerto en el mejor
+ * caso y, en el peor, el optimizador de imagenes pidiendole cosas a lo que
+ * escuche en ese puerto de la VM.
+ */
+const patronDelBucket = () => {
+  const crudo = process.env.NEXT_PUBLIC_S3_PUBLIC_URL
+  if (!crudo) return []
+  try {
+    const url = new URL(crudo)
+    return [
+      {
+        protocol: url.protocol.replace(':', ''),
+        hostname: url.hostname,
+        port: url.port,
+        pathname: `${url.pathname.replace(/\/+$/, '')}/**`,
+      },
+    ]
+  } catch {
+    return []
+  }
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /*
+   * `standalone` solo para la imagen de Docker, que lo pide con
+   * `NEXT_OUTPUT=standalone`. Con la salida standalone `next start` avisa que
+   * no corresponde y no copia `public/` ni `.next/static`, asi que dejarla fija
+   * rompia `pnpm build && pnpm start` en la compu de desarrollo.
+   */
+  output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
+  // No anunciar el framework en cada respuesta.
+  poweredByHeader: false,
   /*
    * Los layouts viven dentro de grupos de rutas, asi que ninguno es el layout
    * raiz y Next no tiene con que componer un 404 para las URLs que no coinciden
@@ -9,6 +64,32 @@ const nextConfig = {
    */
   experimental: {
     globalNotFound: true,
+  },
+  /*
+   * Para probar el sitio desde el celular con `pnpm dev`, abriendolo por la IP
+   * de la compu en la red. Next 16 rechaza con 403 los pedidos a `/_next/*` y el
+   * websocket de recarga que llegan desde un origen que no sea `localhost`.
+   * Solo aplica al servidor de desarrollo; en produccion no existe.
+   */
+  allowedDevOrigins: ['10.*.*.*', '172.*.*.*', '192.168.*.*'],
+  async headers() {
+    return [{ source: '/:path*', headers: CABECERAS_DE_SEGURIDAD }]
+  },
+  /*
+   * El `.pmtiles` del mapa sale por el mismo host que el sitio. En desarrollo
+   * `NEXT_PUBLIC_MAPA_TILES_URL` es `/mapa/jurisdicciones.pmtiles` y esto lo
+   * reenvia a MinIO: con `http://localhost:9000` en la variable, el celular le
+   * pedia el archivo a si mismo y el mapa no aparecia. Next reenvia el header
+   * `Range` y devuelve el 206 tal cual, que es lo que necesita pmtiles.
+   *
+   * En la VM de produccion `/mapa/*` lo atiende el proxy directo contra MinIO
+   * (ver `deploy/Caddyfile`) y esto queda de respaldo: 100 MB por rangos es
+   * trafico que conviene que no pase por el proceso de Node.
+   */
+  async rewrites() {
+    const bucket = process.env.NEXT_PUBLIC_S3_PUBLIC_URL
+    if (!bucket) return []
+    return [{ source: '/mapa/:archivo', destination: `${bucket}/mapa/:archivo` }]
   },
   images: {
     /*
@@ -32,13 +113,7 @@ const nextConfig = {
       { pathname: '/api/media/file/**', search: '?prefix=media' },
     ],
     remotePatterns: [
-      // MinIO local. En produccion se reemplaza por el dominio publico de R2.
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '9000',
-        pathname: '/blog-media/**',
-      },
+      ...patronDelBucket(),
       /*
        * Las miniaturas de los juegos de la seccion de ultimos ganadores. No son
        * media de Payload: las sirve el CDN de la plataforma de casino, que es

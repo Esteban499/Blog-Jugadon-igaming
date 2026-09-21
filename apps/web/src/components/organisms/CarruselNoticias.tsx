@@ -132,7 +132,7 @@ export function CarruselNoticias({ children, hrefVerTodas }: CarruselNoticiasPro
       </noscript>
 
       <ul
-        className={`pista sin-barra flex snap-x snap-mandatory gap-6 overflow-x-auto ${
+        className={`pista sin-barra desvanecer flex snap-x snap-mandatory gap-6 overflow-x-auto ${
           aLaVista ? 'revelar-visible' : 'revelar'
         }`}
         id="pista-noticias"

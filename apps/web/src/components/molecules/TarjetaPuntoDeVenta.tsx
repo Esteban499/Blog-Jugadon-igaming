@@ -3,7 +3,8 @@ import Image from 'next/image'
 import { Boton, clasesDeBoton } from '@/components/atoms/Boton'
 
 /**
- * Ficha de una sala o agencia, en la lista que acompana al mapa.
+ * Ficha de una sala, agencia o punto de pago: la del local elegido en el mapa
+ * o en el buscador de `/puntos-de-venta`.
  *
  * Es la contraparte del marcador: lo que en el mapa es un punto, aca son los
  * datos con los que se decide ir —direccion, horario, telefono— y las dos

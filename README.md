@@ -5,9 +5,12 @@ proceso, PostgreSQL y almacenamiento S3.
 
 | Capa | Local | Produccion |
 | --- | --- | --- |
-| App + CMS | `next dev` en :3000 | contenedor `web`, N replicas |
-| Base de datos | Postgres en Docker, :5433 | Postgres del cluster |
+| App + CMS | `next dev` en :3000 | contenedor `web` en una VM, detras de Caddy |
+| Base de datos | Postgres en Docker, :5433 | Postgres en Docker, en la misma VM |
 | Archivos | MinIO en Docker, :9000 | Cloudflare R2 |
+
+Como se despliega y donde viven los secretos: [Produccion en una
+VM](#produccion-en-una-vm).
 
 MinIO y R2 hablan la misma API S3: pasar de un entorno a otro son variables de
 entorno, no codigo.
@@ -46,7 +49,6 @@ Desde la raiz del repo tambien sirven `pnpm dev`, `pnpm seed`, `pnpm up` y
 | http://localhost:3000/promociones | Bonos vigentes de las cinco plataformas |
 | http://localhost:3000/admin | Panel del CMS |
 | http://localhost:3000/api | API REST |
-| http://localhost:3000/api/graphql-playground | Explorador GraphQL |
 | http://localhost:9001 | Consola de MinIO (`minioadmin` / `minioadmin`) |
 
 ## Puerto 5433
@@ -587,11 +589,18 @@ Dos consecuencias que se ven en el codigo:
   GPU, y arrastrar cuesta lo mismo con catorce que con mil cuatrocientos.
 
   Lo que se pierde —que el marcador ya no lo anuncie el lector de pantalla— se
-  compensa del lado de la lista, que son fichas reales y navegables con teclado.
-  Es tambien por eso que **la lista muestra lo que hay en pantalla** y no una
-  pagina arbitraria: si es el equivalente accesible del mapa, tiene que decir lo
-  mismo que el mapa. Ordenada por cercania al centro y cortada en sesenta
-  fichas, que es mas de lo que alguien recorre.
+  compensa con el **buscador por nombre**: un combobox que se maneja entero con
+  el teclado y lleva a la ficha del local, que dice lo mismo que diria el
+  marcador. Reemplazo a la lista de "lo que hay en pantalla", que cortaba en
+  sesenta fichas y no respondia la pregunta de quien ya sabe a donde va.
+
+- **MapLibre se carga despues que la pagina.** MapLibre, pmtiles y el estilo de
+  Protomaps (`utilidades/mapa.ts`) se piden con `import()` al crear el mapa: son
+  casi un megabyte que la pagina ya no espera para responder. Lo que el
+  componente necesita desde el primer render vive en `utilidades/puntos-del-mapa.ts`.
+  Del lado del servidor, el directorio entero se cachea con `unstable_cache`
+  (etiqueta `puntos-de-venta`, una hora, invalidada al guardar en el panel) y
+  los filtros se aplican en memoria.
 
 - **Los puntos NO se agrupan en cumulos.** La fuente lleva `cluster: false` y
   cada local es su propio circulo en todos los zooms. El agrupamiento estuvo un
@@ -604,8 +613,7 @@ Dos consecuencias que se ven en el codigo:
   de CABA y los seiscientos de Cordoba son dos manchas azules. Lo unico que se
   hace al respecto es achicar el radio del circulo a 3 px en los zooms lejanos
   —con el radio de ciudad serian una mancha solida— y confiar en los filtros y
-  en el recuento de la lista, que dice cuantos hay ahi aunque el mapa no los
-  separe.
+  en el buscador, que llega a cualquier local aunque el mapa no los separe.
 
   Agrupar y no agrupar son cinco lineas de diferencia (`cluster`, dos capas y el
   handler que abre el cumulo). Si algun dia se quiere volver, esta en el
@@ -657,17 +665,18 @@ worker con `importScriptInWorkers()`.
 
 ### Generar el archivo del mapa
 
-Hoy el archivo cubre **las cinco jurisdicciones donde opera Jugadon** —CABA,
-Cordoba, La Rioja, San Luis y Santa Fe—, no el pais entero. Son 173 MB contra
-1.1 GB de Argentina completa, y el hueco entre La Rioja y CABA es justamente lo
-que un bbox unico traeria al pedo.
+Hoy el archivo cubre **solo las provincias que tienen puntos de venta** —CABA,
+Cordoba, La Rioja y San Luis—, no el pais entero. Santa Fe estuvo y se saco
+porque no tiene ningun local cargado. Son 105 MB contra 1.1 GB de Argentina
+completa, y el hueco entre La Rioja y CABA es justamente lo que un bbox unico
+traeria al pedo.
 
-Por eso el script usa `--region` con un MultiPolygon de cinco rectangulos y no
+Por eso el script usa `--region` con un MultiPolygon de cuatro rectangulos y no
 un `--bbox`. Si se abre un local en una provincia nueva, se le agrega su caja a
 `scripts/jurisdicciones.geojson` y se vuelve a correr:
 
 ```bash
-./scripts/generar-mapa.sh          # las cinco jurisdicciones, zoom 14
+./scripts/generar-mapa.sh          # las provincias con locales, zoom 14
 ./scripts/generar-mapa.sh 13       # mas liviano, menos detalle de calle
 ```
 
@@ -680,9 +689,19 @@ El script imprime al final los comandos para subirlo y la politica de CORS.
 **Los headers de Range son los que importan**: sin exponerlos, MapLibre no puede
 leer por pedazos e intenta bajar el archivo entero.
 
-Sin `NEXT_PUBLIC_MAPA_TILES_URL` la pantalla no se rompe: muestra la lista
-completa de locales con direccion y enlace para llegar, y avisa que falta el
-mapa.
+Sin `NEXT_PUBLIC_MAPA_TILES_URL` la pantalla no se rompe: avisa que falta el
+mapa, y el buscador por nombre sigue llevando a la ficha de cada local, con su
+direccion y el enlace para llegar.
+
+Con la variable puesta pero sin el archivo en el bucket —un 404— el mapa carga
+igual y dibuja los puntos sobre el gris de fondo, sin calles ni rotulos. Si el
+mapa sale "vacio", lo primero es revisar que el `.pmtiles` este subido.
+
+En desarrollo la variable es **relativa** (`/mapa/jurisdicciones.pmtiles`) y
+`next.config.mjs` reenvia `/mapa/*` a MinIO. Con `http://localhost:9000/...` el
+mapa andaba solo en la compu de desarrollo: el celular, abriendo el sitio por la
+IP de la red, entendia `localhost` como si mismo y nunca recibia el archivo. En
+produccion va la URL absoluta de R2.
 
 ### Lo unico que todavia sale a un tercero
 
@@ -858,17 +877,148 @@ docker compose down -v && docker compose up -d
 cd apps/web && pnpm seed
 ```
 
+## Produccion en una VM
+
+Una sola maquina virtual, administrada como si fuera on-premise: nada de
+plataforma gestionada para la app. Todo corre en Docker Compose, desde
+`deploy/`:
+
+| Pieza | Donde | Expuesta |
+| --- | --- | --- |
+| Caddy | contenedor `caddy` | 80 y 443. TLS de Let's Encrypt, automatico |
+| App + panel | contenedor `web` (`apps/web/Dockerfile`) | No: solo la ve Caddy |
+| Postgres 16 | contenedor `postgres`, volumen `postgres-data` | Solo `127.0.0.1:5432` de la VM |
+| Archivos | Cloudflare R2 | URL publica del bucket |
+
+R2 y no MinIO para los archivos: el proyecto de MinIO dejo de publicar
+imagenes de su edicion comunitaria, y un servicio de almacenamiento sin
+parches, expuesto para servir el mapa, es justo lo que no conviene tener en la
+misma VM que la base. Si los archivos tienen que quedar adentro si o si, la
+alternativa es otro servidor compatible con S3 en un contenedor mas; para la app
+son solo las variables `S3_*`.
+
+### Secretos
+
+**En la VM no se guarda ningun secreto.** Viven en un gestor externo y el
+gestor los pone en el entorno del proceso que despliega; de ahi pasan a los
+contenedores. No hay `.env` de produccion ni en el repo ni en el disco.
+
+| Secreto | Que es | Rotarlo |
+| --- | --- | --- |
+| `POSTGRES_PASSWORD` | Clave del usuario `jugadon` de Postgres | `ALTER USER` en la base, despues en el gestor, y redesplegar |
+| `PAYLOAD_SECRET` | Firma las sesiones del panel. 32+ caracteres | Cambiarlo cierra todas las sesiones abiertas |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | Token de R2 con permiso **solo** sobre el bucket del proyecto | Desde el panel de Cloudflare |
+
+Generarlos con `openssl rand -hex 32`. La clave de Postgres va adentro de una
+URL de conexion, y `desplegar.sh` rechaza caracteres que haya que escapar.
+
+Lo que no es secreto —dominio, bucket, URLs publicas— esta en
+`deploy/produccion.env`, versionado, y se revisa como cualquier cambio.
+
+El gestor lo elige la organizacion; el repo no depende de ninguno, porque todo
+lo que hace falta es un comando que corra otro con las variables puestas:
+
+```bash
+infisical run --env=prod -- bash deploy/desplegar.sh        # Infisical (nube o propio)
+bws run --project-id <id> -- bash deploy/desplegar.sh       # Bitwarden Secrets Manager
+op run --env-file=deploy/secretos.op.env -- bash deploy/desplegar.sh   # 1Password
+```
+
+Si la VM esta en una nube (Azure, AWS, GCP), su gestor de secretos con la
+identidad administrada de la maquina evita incluso la credencial de arranque de
+abajo.
+
+**Lo que hay que saber de este esquema:**
+
+- **La credencial del gestor.** La VM necesita una identidad para pedirle los
+  secretos al gestor. Tiene que ser de solo lectura y solo del entorno de
+  produccion, y revocable. O la usa una persona desde su sesion al desplegar,
+  o queda cifrada con `systemd-creds` atada al TPM de la VM, que no sirve si
+  alguien copia el disco.
+- **Docker guarda el entorno de cada contenedor** en
+  `/var/lib/docker/containers/*/config.v2.json`, y `docker inspect` lo muestra.
+  Es lo que permite que los contenedores vuelvan solos despues de un reinicio.
+  Solo lo lee root, que igual podria leer la memoria del proceso, pero
+  si la politica exige que ningun secreto toque el disco, el paso siguiente
+  es que el contenedor le pida los secretos al gestor al arrancar, con la CLI
+  del gestor como entrypoint, y que en la VM quede solo la credencial del
+  punto anterior.
+- **Los secretos del build no quedan en la imagen.** El build necesita la base
+  y `PAYLOAD_SECRET`, porque la portada se prerenderiza con contenido real.
+  Entran como secretos de BuildKit, que existen mientras corre ese paso y no
+  quedan en ninguna capa ni en `docker history`. Nunca pasarlos como `ARG`.
+- **El `.env` versionado de desarrollo no llega a produccion.** El
+  `.dockerignore` lo deja afuera de la imagen, y `payload.config.ts` frena el
+  arranque si en produccion falta un secreto o quedo uno de los de ejemplo del
+  repo.
+
+### Primer despliegue
+
+1. VM con Docker y Docker Compose v2.24 o superior. Firewall: 80 y 443
+   abiertos, SSH solo desde donde corresponda, nada mas.
+2. DNS del dominio apuntando a la VM, antes de levantar Caddy: sin eso no puede
+   sacar el certificado.
+3. Bucket de R2 creado, con el `.pmtiles` subido y el CORS que imprime
+   `scripts/generar-mapa.sh`. Token con permiso solo sobre ese bucket.
+4. Completar `deploy/produccion.env`. El script no corre mientras quede un
+   `CAMBIAR`.
+5. Cargar los secretos en el gestor.
+6. **Restringir `/admin` por IP en `deploy/Caddyfile` antes de levantar.**
+   Con la base vacia, Payload muestra en `/admin` la pantalla para crear el
+   primer usuario, y el primero que llega queda de admin.
+7. `<gestor> run -- bash deploy/desplegar.sh`
+8. Entrar a `/admin` y crear el usuario admin real.
+9. Cargar los datos iniciales. La imagen no trae `pnpm` ni los scripts, y las
+   planillas de `PDV/` no tienen por que estar en la VM: se corren desde una
+   compu del equipo, contra la base de produccion por un tunel SSH.
+
+   ```bash
+   ssh -N -L 5434:127.0.0.1:5432 usuario@vm &    # la base de la VM, en localhost:5434
+   cd apps/web
+   <gestor> run -- bash -c 'set -a; . ../../deploy/produccion.env; set +a
+     DATABASE_URI="postgres://jugadon:$POSTGRES_PASSWORD@localhost:5434/jugadon" pnpm cargar-plataformas'
+   ```
+
+   Lo mismo con `cargar-banners` e `importar-puntos` (antes,
+   `importar-puntos:simular`). `produccion.env` va cargado para que las
+   imagenes suban a R2 y no al MinIO local: lo que ya esta en el entorno le
+   gana al `.env` de desarrollo.
+
+**`pnpm seed` no se corre nunca en produccion**: crea `admin@blog.local` con
+`admin1234`.
+
+### Actualizar
+
+`git pull` y el mismo `<gestor> run -- bash deploy/desplegar.sh`. El script
+respalda la base, construye la imagen (que corre `payload migrate` antes de
+compilar) y reemplaza el contenedor.
+
+Los cambios de esquema pasan a ser migraciones: en desarrollo sigue el push
+automatico, pero todo cambio de colecciones que vaya a produccion lleva su
+`pnpm payload migrate:create <nombre>`, versionado en `src/migrations`. La
+primera, `inicial`, es el esquema entero.
+
+### Respaldos
+
+`desplegar.sh` deja un `pg_dump` en `deploy/respaldos/` antes de cada
+despliegue, que el `.gitignore` excluye. Tiene emails y hashes de claves:
+tiene que salir de la VM, cifrado, a otro lado. Un respaldo que vive en el
+mismo disco que la base no sobrevive a perder ese disco. Falta el respaldo
+diario programado; los archivos ya estan en R2.
+
 ## Pendientes antes de produccion
 
-- Migraciones de Payload en lugar del push automatico de esquema, que solo sirve
-  en desarrollo.
-- `Dockerfile` con `output: 'standalone'` y manifiestos para el cluster.
-- Storage apuntando a R2 y `next/image` en lugar de `<img>`.
+- Respaldo diario de la base, cifrado y fuera de la VM.
+- Adaptador de email (SMTP). Sin el, "olvide mi clave" escribe el enlace de
+  recuperacion en el log del contenedor: nadie lo recibe, y quien lea los logs
+  puede resetear cuentas.
+- Content-Security-Policy completa. Hoy solo va `frame-ancestors`: una politica
+  de scripts hay que probarla contra MapLibre (workers en `blob:`), el editor
+  del panel y los embeds de YouTube.
 - Verificacion de edad, avisos de juego responsable y restriccion por
   jurisdiccion, modelados como configuracion global y no fijos en el codigo.
 - Alta en Google Search Console: solo acumula datos desde que se configura.
-- El front actual es una verificacion de que el contenido llega del panel al
-  sitio, no el diseno definitivo.
+- `next/image` en lugar de `<img>` en el bloque de imagen del cuerpo.
 
 ### Dos features de Payload que no estan estables
 

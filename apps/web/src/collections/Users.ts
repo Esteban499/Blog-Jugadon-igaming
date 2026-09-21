@@ -4,7 +4,23 @@ import { isAdmin, isAdminField, roleOf } from '../access/roles'
 export const Users: CollectionConfig = {
   slug: 'users',
   labels: { singular: 'Usuario', plural: 'Usuarios' },
-  auth: true,
+  auth: {
+    /**
+     * La cookie de sesion viaja solo por HTTPS en produccion, y nunca en un
+     * pedido que arranca en otro sitio. `Strict` y no el `Lax` de Payload: el
+     * panel no tiene enlaces de entrada desde afuera que valga la pena
+     * conservar, y es una capa mas contra CSRF ademas de la lista `csrf` de
+     * `payload.config.ts`.
+     */
+    cookies: {
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+    },
+    // Los valores de Payload, declarados para que esten a la vista: cinco
+    // intentos fallidos bloquean la cuenta diez minutos.
+    maxLoginAttempts: 5,
+    lockTime: 10 * 60 * 1000,
+  },
   admin: {
     useAsTitle: 'nombre',
     defaultColumns: ['nombre', 'email', 'rol'],

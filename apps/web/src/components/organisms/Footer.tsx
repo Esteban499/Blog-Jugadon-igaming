@@ -5,45 +5,150 @@ import { LogoJugadon } from '@/components/atoms/marca/LogoJugadon'
 
 import { SECCIONES } from './secciones'
 
-/**
- * Los perfiles todavia no estan definidos: el prototipo trae los iconos pero
- * no las URLs. Con `href: null` el icono se dibuja apagado y sin enlace, en
- * vez de apuntar a `#` y no llevar a ningun lado.
- */
-const REDES: readonly { nombre: string; icono: string; href: string | null }[] = [
-  { nombre: 'Facebook', icono: '/redes/facebook.svg', href: null },
-  { nombre: 'Instagram', icono: '/redes/instagram.svg', href: null },
-  { nombre: 'Twitter', icono: '/redes/twitter.svg', href: null },
-  { nombre: 'Youtube', icono: '/redes/youtube.svg', href: null },
-  { nombre: 'TikTok', icono: '/redes/tiktok.svg', href: null },
+interface Red {
+  nombre: string
+  icono: string
+  href: string
+}
+
+/** Las cuentas nacionales, que van en la fila principal. */
+const REDES: readonly Red[] = [
+  { nombre: 'X (Twitter)', icono: '/redes/twitter.svg', href: 'https://x.com/jugadon_arg' },
+  {
+    nombre: 'Instagram',
+    icono: '/redes/instagram.svg',
+    href: 'https://www.instagram.com/jugadon_arg/',
+  },
+  { nombre: 'YouTube', icono: '/redes/youtube.svg', href: 'https://www.youtube.com/@jugadon_arg' },
+  { nombre: 'TikTok', icono: '/redes/tiktok.svg', href: 'https://www.tiktok.com/@jugadon.ok' },
+  {
+    nombre: 'Spotify',
+    icono: '/redes/spotify.svg',
+    href: 'https://open.spotify.com/user/317gntai2wlxn4tdon7du6lisemu',
+  },
+  { nombre: 'Twitch', icono: '/redes/twitch.svg', href: 'https://www.twitch.tv/jugadon_arg' },
 ]
 
 /**
- * Cada logo se exporto con 150 de ancho y su propio alto: son proporciones
- * distintas, asi que un tamano unico para todos los deformaria. Cada uno vive
- * en una caja de la misma medida y se acomoda adentro.
+ * Las cuentas de cada provincia van aparte y con el nombre al lado: cuatro
+ * iconos de Facebook iguales en la misma fila no dicen cual es cual.
+ */
+const REDES_PROVINCIALES: readonly { provincia: string; redes: readonly Red[] }[] = [
+  {
+    provincia: 'CABA',
+    redes: [
+      {
+        nombre: 'Instagram',
+        icono: '/redes/instagram.svg',
+        href: 'https://www.instagram.com/jugadoncaba/',
+      },
+      {
+        nombre: 'Facebook',
+        icono: '/redes/facebook.svg',
+        href: 'https://www.facebook.com/jugadoncaba/',
+      },
+    ],
+  },
+  {
+    provincia: 'Córdoba',
+    redes: [
+      {
+        nombre: 'Facebook',
+        icono: '/redes/facebook.svg',
+        href: 'https://www.facebook.com/jugadoncordoba/',
+      },
+    ],
+  },
+  {
+    provincia: 'La Rioja',
+    redes: [
+      {
+        nombre: 'Facebook',
+        icono: '/redes/facebook.svg',
+        href: 'https://www.facebook.com/Jugadonlarioja/',
+      },
+    ],
+  },
+  {
+    provincia: 'San Luis',
+    redes: [
+      {
+        nombre: 'Facebook',
+        icono: '/redes/facebook.svg',
+        href: 'https://www.facebook.com/jugadonsl/',
+      },
+    ],
+  },
+]
+
+/**
+ * Medidas reales de cada PNG, en pixeles. Los archivos estan recortados al
+ * dibujo: los originales traian margenes transparentes distintos —el de AJALAR
+ * ocupaba la mitad del archivo— que achicaban el logo sin que se notara.
  */
 const LOTERIAS = [
-  { nombre: 'AJALAR', imagen: '/loterias/ajalar.png', ancho: 150, alto: 168 },
-  { nombre: 'Lotería de San Luis', imagen: '/loterias/san-luis.png', ancho: 150, alto: 72 },
-  { nombre: 'Lotería de Córdoba', imagen: '/loterias/cordoba.png', ancho: 150, alto: 42 },
-  { nombre: 'Lotería de la Ciudad', imagen: '/loterias/ciudad.png', ancho: 150, alto: 64 },
-  { nombre: 'Lotería de Santa Fe', imagen: '/loterias/santa-fe.png', ancho: 150, alto: 45 },
+  { nombre: 'AJALAR', imagen: '/loterias/ajalar.png', ancho: 121, alto: 136 },
+  { nombre: 'Lotería de San Luis', imagen: '/loterias/san-luis.png', ancho: 981, alto: 427 },
+  { nombre: 'Lotería de Córdoba', imagen: '/loterias/cordoba.png', ancho: 686, alto: 192 },
+  { nombre: 'Lotería de la Ciudad', imagen: '/loterias/ciudad.png', ancho: 1330, alto: 471 },
+  { nombre: 'Lotería de Santa Fe', imagen: '/loterias/santa-fe.png', ancho: 882, alto: 236 },
   {
     nombre: 'Publicidad responsable — A.L.E.A.',
     imagen: '/loterias/alea.png',
-    ancho: 150,
-    alto: 150,
+    ancho: 450,
+    alto: 424,
   },
 ] as const
+
+/**
+ * Los logos se igualan por superficie, no por caja. Encajados en una misma
+ * caja, los apaisados la llenan a lo ancho y los cuadrados solo a lo alto, asi
+ * que AJALAR y A.L.E.A. quedaban en una fraccion del tamano de Cordoba. Con la
+ * misma superficie todos pesan parecido; el tope de alto evita que los casi
+ * cuadrados se estiren por encima de la fila.
+ */
+const SUPERFICIE_DE_LOGO = 2600
+const ALTO_MAXIMO_DE_LOGO = 48
+
+function medidaDeLogo(ancho: number, alto: number) {
+  const proporcion = ancho / alto
+  const altoFinal = Math.min(Math.sqrt(SUPERFICIE_DE_LOGO / proporcion), ALTO_MAXIMO_DE_LOGO)
+  return { width: Math.round(altoFinal * proporcion), height: Math.round(altoFinal) }
+}
 
 /**
  * `brightness-0 invert` aplana cualquier logo a blanco puro, y la opacidad lo
  * baja a un gris. Es lo que pide el manual: los logos de reguladores van en
  * blanco o gris plano, nunca coloreados con la paleta ni sobre fondos de
  * color (§5.9).
+ *
+ * Por eso los SVG de `/redes/` son un disco con el glifo calado, sin nada
+ * debajo: un relleno blanco detras del glifo se aplanaria junto con el disco y
+ * el icono quedaria como un circulo liso.
  */
 const PLANO = 'brightness-0 invert'
+
+function EnlaceARed({ red, etiqueta }: { red: Red; etiqueta: string }) {
+  return (
+    <a
+      aria-label={etiqueta}
+      className="flex size-11 items-center justify-center opacity-60 transition-opacity duration-150 ease-marca hover:opacity-100"
+      href={red.href}
+      rel="noreferrer"
+      target="_blank"
+    >
+      <Image
+        alt=""
+        className={PLANO}
+        height={20}
+        src={red.icono}
+        style={{ height: 20, width: 20 }}
+        unoptimized
+        width={20}
+      />
+    </a>
+  )
+}
 
 export function Footer() {
   return (
@@ -59,48 +164,34 @@ export function Footer() {
         <div className="flex flex-col items-center gap-8 md:flex-row md:justify-between">
           <LogoJugadon alto={43} ancho={150} />
 
-          <div className="flex items-center gap-4">
-            <p className="font-util text-legal text-apagado uppercase">Seguinos en</p>
-            <ul className="flex items-center gap-1">
-              {REDES.map((red) => {
-                const icono = (
-                  <Image
-                    alt=""
-                    className={PLANO}
-                    height={20}
-                    src={red.icono}
-                    style={{ height: 20, width: 20 }}
-                    unoptimized
-                    width={20}
-                  />
-                )
-
-                return (
+          <div className="flex flex-col items-center gap-3 md:items-end">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 md:justify-end">
+              <p className="font-util text-legal text-apagado uppercase">Seguinos en</p>
+              <ul className="flex flex-wrap items-center justify-center gap-1">
+                {REDES.map((red) => (
                   <li key={red.nombre}>
-                    {red.href === null ? (
-                      <span
-                        aria-disabled
-                        aria-label={`${red.nombre} — cuenta todavía sin definir`}
-                        className="flex size-11 cursor-not-allowed items-center justify-center opacity-40"
-                        role="img"
-                        title="Cuenta todavía sin definir"
-                      >
-                        {icono}
-                      </span>
-                    ) : (
-                      <a
-                        aria-label={red.nombre}
-                        className="flex size-11 items-center justify-center opacity-60 transition-opacity duration-150 ease-marca hover:opacity-100"
-                        href={red.href}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        {icono}
-                      </a>
-                    )}
+                    <EnlaceARed etiqueta={red.nombre} red={red} />
                   </li>
-                )
-              })}
+                ))}
+              </ul>
+            </div>
+
+            <ul
+              aria-label="Cuentas por provincia"
+              className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 md:justify-end"
+            >
+              {REDES_PROVINCIALES.map(({ provincia, redes }) => (
+                <li className="flex items-center gap-1" key={provincia}>
+                  <span className="font-util text-legal text-apagado uppercase">{provincia}</span>
+                  <ul className="flex items-center">
+                    {redes.map((red) => (
+                      <li key={red.nombre}>
+                        <EnlaceARed etiqueta={`${red.nombre} de Jugadón ${provincia}`} red={red} />
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
@@ -148,22 +239,27 @@ export function Footer() {
           </span>
 
           <ul className="flex flex-wrap items-center justify-center gap-x-8 gap-y-6">
-            {LOTERIAS.map((loteria) => (
-              <li className="flex h-10 w-[100px] items-center justify-center" key={loteria.nombre}>
-                {/*
-                 * `h-auto w-auto` en las dos: el reset de Tailwind fija
-                 * `height: auto` y, si solo una queda en automatico,
-                 * `next/image` avisa de que la relacion de aspecto no cierra.
-                 */}
-                <Image
-                  alt={loteria.nombre}
-                  className={`h-auto max-h-full w-auto max-w-full object-contain opacity-60 ${PLANO}`}
-                  height={loteria.alto}
-                  src={loteria.imagen}
-                  width={loteria.ancho}
-                />
-              </li>
-            ))}
+            {LOTERIAS.map((loteria) => {
+              const medida = medidaDeLogo(loteria.ancho, loteria.alto)
+
+              return (
+                <li className="flex h-12 items-center" key={loteria.nombre}>
+                  {/*
+                   * Ancho y alto tambien en `style`: el reset de Tailwind fija
+                   * `height: auto` y, si solo una queda en automatico,
+                   * `next/image` avisa de que la relacion de aspecto no cierra.
+                   */}
+                  <Image
+                    alt={loteria.nombre}
+                    className={`opacity-60 ${PLANO}`}
+                    height={medida.height}
+                    src={loteria.imagen}
+                    style={medida}
+                    width={medida.width}
+                  />
+                </li>
+              )
+            })}
           </ul>
 
           <p className="max-w-[46ch] text-center font-util text-legal text-apagado md:ml-auto md:text-right">

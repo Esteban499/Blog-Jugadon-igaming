@@ -98,6 +98,40 @@ const SANTA_FE = {
  */
 export const PLATAFORMAS = [...JURISDICCIONES, SANTA_FE] as const satisfies readonly Plataforma[]
 
+/** El dominio del que cuelgan todas las plataformas y sus APIs. */
+export const DOMINIO_DE_PLATAFORMAS = 'jugadon.bet.ar'
+
+/**
+ * `true` si la URL es https y cuelga de `DOMINIO_DE_PLATAFORMAS`.
+ *
+ * Es la guarda contra SSRF del bot de promociones. `urlApi` y `urlPromociones`
+ * se editan desde el panel y el servidor les hace `fetch`: sin esto, una cuenta
+ * de editor podria apuntar el bot a cualquier servicio de la red de la VM —la
+ * base, el bucket, un panel interno— con la identidad del servidor.
+ *
+ * Tampoco se aceptan puerto, usuario, query ni fragmento. Con un `?` al final,
+ * el sufijo que agrega el adaptador (`/bonus-engine/api/...`) quedaria
+ * convertido en un parametro y la ruta la elegiria quien cargo la URL.
+ */
+export const esUrlDePlataforma = (valor: string | null | undefined): boolean => {
+  if (!valor) return false
+  try {
+    const url = new URL(valor)
+    return (
+      url.protocol === 'https:' &&
+      (url.hostname === DOMINIO_DE_PLATAFORMAS ||
+        url.hostname.endsWith(`.${DOMINIO_DE_PLATAFORMAS}`)) &&
+      !url.port &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash
+    )
+  } catch {
+    return false
+  }
+}
+
 /** El dominio pelado, para mostrarle a quien va a salir del blog adonde va. */
 export const dominioDe = (plataforma: Plataforma): string =>
   plataforma.sitio.replace(/^https?:\/\//, '').replace(/\/+$/, '')

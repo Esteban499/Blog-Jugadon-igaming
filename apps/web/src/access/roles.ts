@@ -28,6 +28,25 @@ export const isEditor: Access = ({ req: { user } }) => {
 export const isAuthenticated: Access = ({ req: { user } }) => Boolean(user)
 
 /**
+ * Crear y editar, pero publicar solo si es editor o admin.
+ *
+ * Es la regla del autor: carga y corrige, y publicar es del editor. Con
+ * `isAuthenticated` en `create`/`update` esa regla vivia solo en el texto de
+ * ayuda del campo `rol`: la API aceptaba `_status: 'published'` de cualquier
+ * cuenta, y el boton "Publicar" del panel le funcionaba a un autor.
+ *
+ * Se mira lo que trae el pedido. Sin `data` —el panel preguntando si mostrar el
+ * formulario— la respuesta es si, porque guardar un borrador sigue permitido.
+ * Los scripts y el bot escriben por la Local API, que no pasa por aca.
+ */
+export const editarSinPublicar: Access = ({ req: { user }, data }) => {
+  if (!user) return false
+  const role = roleOf(user)
+  if (role === 'admin' || role === 'editor') return true
+  return (data as { _status?: unknown } | undefined)?._status !== 'published'
+}
+
+/**
  * El publico solo ve entradas publicadas; el equipo ve todo, borradores incluidos.
  * Devolver una query en lugar de false hace que Payload filtre en la base.
  */

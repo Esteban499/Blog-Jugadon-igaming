@@ -30,7 +30,15 @@ export const Media: CollectionConfig = {
   },
   upload: {
     focalPoint: true,
-    mimeTypes: ['image/*'],
+    /**
+     * Formatos de mapa de bits, con nombre y apellido. `image/*` dejaba pasar
+     * SVG, que es un documento con `<script>` adentro: el archivo se sirve por
+     * `/api/media/file/...`, desde el mismo origen que el panel, y abrirlo
+     * ejecutaria lo que traiga con la sesion de quien lo abra. Tambien quedan
+     * afuera HEIC/HEIF, que pasan por libheif, la parte de sharp con mas
+     * historial de vulnerabilidades.
+     */
+    mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'],
     // Los tamanos se generan al subir; el front pide el que necesita en vez de
     // servir el original y escalarlo en el navegador.
     imageSizes: [

@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 import { isEditor } from '../access/roles'
 import { slugField } from '../fields/slug'
+import { validarUrl } from '../fields/url'
 
 /**
  * Perfil publico, separado de Users a proposito: no todo autor necesita cuenta
@@ -45,7 +46,7 @@ export const Authors: CollectionConfig = {
       admin: { description: 'Perfiles externos que respaldan la identidad del autor.' },
       fields: [
         { name: 'etiqueta', type: 'text', label: 'Etiqueta', required: true },
-        { name: 'url', type: 'text', label: 'URL', required: true },
+        { name: 'url', type: 'text', label: 'URL', required: true, validate: validarUrl() },
       ],
     },
     {

@@ -1,9 +1,9 @@
 export interface Seccion {
   etiqueta: string
   /**
-   * `null` mientras la seccion no tenga pagina. Se dibuja apagada y sin enlace
-   * en lugar de apuntar a `#`: un enlace que no lleva a ningun lado promete
-   * algo que no cumple, y en un menu se nota mas que la seccion falte.
+   * `null` mientras la seccion no tenga pagina. El footer la dibuja apagada y
+   * sin enlace en lugar de apuntar a `#`: un enlace que no lleva a ningun lado
+   * promete algo que no cumple. La navbar directamente no la muestra.
    */
   href: string | null
 }

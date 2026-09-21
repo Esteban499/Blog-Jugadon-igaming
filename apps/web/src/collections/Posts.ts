@@ -6,7 +6,7 @@ import {
   lexicalEditor,
 } from '@payloadcms/richtext-lexical'
 import { bloquesDelEditor } from '../blocks'
-import { isAuthenticated, isEditor, readPublished } from '../access/roles'
+import { editarSinPublicar, isEditor, readPublished } from '../access/roles'
 import { slugField } from '../fields/slug'
 
 /**
@@ -54,8 +54,8 @@ export const Posts: CollectionConfig = {
   },
   access: {
     read: readPublished,
-    create: isAuthenticated,
-    update: isAuthenticated,
+    create: editarSinPublicar,
+    update: editarSinPublicar,
     delete: isEditor,
   },
   versions: {

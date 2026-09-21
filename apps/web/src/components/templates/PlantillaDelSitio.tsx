@@ -27,8 +27,14 @@ export function PlantillaDelSitio({ children }: PlantillaDelSitioProps) {
        * `dvh` y no `vh`: en el navegador del telefono la barra de direcciones
        * se esconde al bajar y `vh` no lo acompana, asi que la pagina pega un
        * salto. `dvh` sigue el alto real de la ventana.
+       *
+       * `suppressHydrationWarning`: hay extensiones del navegador (ColorZilla,
+       * Grammarly, gestores de contrasenas) que le agregan atributos al `<body>`
+       * antes de que React hidrate, y eso dispara un error de hidratacion que no
+       * es nuestro. Solo silencia los atributos de este elemento; los hijos se
+       * siguen comparando normalmente.
        */}
-      <body className="flex min-h-dvh flex-col">
+      <body className="flex min-h-dvh flex-col" suppressHydrationWarning>
         {/*
          * Primer elemento enfocable de la pagina: quien navega con teclado
          * puede saltear la navbar entera en lugar de tabular por cada seccion

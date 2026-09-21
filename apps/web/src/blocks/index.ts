@@ -1,4 +1,5 @@
 import type { Block } from 'payload'
+import { validarUrl } from '../fields/url'
 
 /**
  * Los formatos que se pueden insertar en el cuerpo de una entrada.
@@ -183,7 +184,7 @@ export const CtaBlock: Block = {
     { name: 'titulo', type: 'text', label: 'Título', required: true, localized: true },
     { name: 'texto', type: 'textarea', label: 'Texto', localized: true },
     { name: 'etiquetaBoton', type: 'text', label: 'Etiqueta del botón', required: true, localized: true },
-    { name: 'url', type: 'text', label: 'URL', required: true },
+    { name: 'url', type: 'text', label: 'URL', required: true, validate: validarUrl({ relativa: true }) },
   ],
 }
 

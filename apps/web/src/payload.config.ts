@@ -26,6 +26,67 @@ const dirname = path.dirname(filename)
 
 const texto = (value: unknown): string => (typeof value === 'string' ? value : '')
 
+const SITIO = (process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
+
+/**
+ * Produccion de verdad: build o servidor con `NODE_ENV=production` sirviendo
+ * una URL publica. Un `pnpm build && pnpm start` en la compu de desarrollo
+ * tambien corre en modo production, pero contra `localhost` y con los secretos
+ * del `.env` versionado, y no tiene sentido frenarlo.
+ */
+const enProduccion =
+  process.env.NODE_ENV === 'production' &&
+  !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(SITIO)
+
+/**
+ * Los valores de ejemplo que viven en el repo.
+ *
+ * El `.env` de desarrollo esta versionado y Next lo carga solo si lo encuentra.
+ * Si en la VM el gestor de secretos no llegara a inyectar `PAYLOAD_SECRET`, el
+ * proceso arrancaria con el de ejemplo, que es publico, y cualquiera podria
+ * firmarse un token de admin.
+ */
+const VALORES_DE_EJEMPLO = new Set([
+  'dev-secret-solo-para-local-no-usar-en-produccion',
+  'cambiar-este-valor',
+  'minioadmin',
+])
+
+/**
+ * Frena el arranque en produccion si falta un secreto o quedo uno de ejemplo.
+ *
+ * Tira en lugar de avisar: un warning en el log de un proceso que igual
+ * arranca es exactamente lo que nadie lee. S3 solo se revisa si esta cargado:
+ * sin esas variables fallan las subidas a la vista de todos, pero no se abre
+ * ningun agujero, y el build y las migraciones no las reciben.
+ */
+const verificarEntorno = () => {
+  if (!enProduccion || typeof window !== 'undefined') return
+
+  const problemas: string[] = []
+
+  for (const nombre of ['DATABASE_URI', 'PAYLOAD_SECRET']) {
+    if (!process.env[nombre]) problemas.push(`falta ${nombre}`)
+  }
+  for (const nombre of ['PAYLOAD_SECRET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY']) {
+    if (VALORES_DE_EJEMPLO.has(process.env[nombre] ?? '')) {
+      problemas.push(`${nombre} tiene el valor de ejemplo del repo`)
+    }
+  }
+  if ((process.env.PAYLOAD_SECRET ?? '').length < 32) {
+    problemas.push('PAYLOAD_SECRET tiene que tener al menos 32 caracteres')
+  }
+  if ((process.env.DATABASE_URI ?? '').includes('//blog:blog@')) {
+    problemas.push('DATABASE_URI usa el usuario y la clave de desarrollo')
+  }
+
+  if (problemas.length > 0) {
+    throw new Error(`Configuración de producción inválida: ${problemas.join('; ')}.`)
+  }
+}
+
+verificarEntorno()
+
 /**
  * El bloque `i18n` traduce la UI de Payload, pero no alcanza para los campos
  * que los plugins declaran con etiquetas fijas en ingles. Esto se las cambia
@@ -71,6 +132,25 @@ const config = buildConfig({
     importMap: { baseDir: path.resolve(dirname) },
     meta: { titleSuffix: ' · Blog iGaming' },
   },
+
+  /**
+   * La cookie de sesion solo vale en pedidos que salen del propio sitio. Si el
+   * navegador manda un `Origin` que no es este, Payload ignora la cookie y el
+   * pedido llega sin usuario. Es la segunda capa contra CSRF, sobre el
+   * `sameSite: 'Strict'` de `Users`.
+   *
+   * Solo en produccion: en desarrollo el panel tambien se abre desde el celular
+   * por la IP de la red, que es otro origen. Si el sitio se sirve en mas de un
+   * dominio (con y sin www), van todos aca.
+   */
+  csrf: enProduccion ? [SITIO] : [],
+
+  /**
+   * GraphQL apagado: nada del sitio ni del panel lo usa —el front consulta por
+   * la Local API y el panel por REST—, y una API que nadie usa es superficie
+   * de ataque que nadie mira. Las rutas `api/graphql*` se borraron con esto.
+   */
+  graphQL: { disable: true },
 
   collections: [
     Posts,

@@ -42,6 +42,11 @@ apps/web/src/media/
 scripts/*.zip
 scripts/tmp/
 
+# ---- Deploy ----
+# Los volcados de la base que deja deploy/desplegar.sh antes de migrar. Tienen
+# emails y hashes de claves del panel: no van al repo.
+deploy/respaldos/
+
 # ---- Logs ----
 *.log
 npm-debug.log*

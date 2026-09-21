@@ -12,7 +12,8 @@ import { Tag } from '@/components/atoms/Tag'
  * La fila es una sola linea que se desplaza en horizontal: los chips que no
  * entran en pantalla no bajan a una segunda o tercera linea —que en movil
  * empujaban la grilla fuera de la vista—, se alcanzan arrastrando. La barra va
- * oculta como en el carrusel; el recorte contra el borde ya avisa que sigue.
+ * oculta como en el carrusel; lo que avisa que sigue es el borde desvanecido
+ * de `desvanecer`.
  *
  * `/blog` la usa una vez sin rotulo, `/puntos-de-venta` dos veces con rotulo y
  * `/promociones` una vez con el boton que abre el resto de los filtros
@@ -47,7 +48,7 @@ export function FilaDeFiltros({ antes, etiqueta, opciones }: FilaDeFiltrosProps)
       {etiqueta ? <p className="font-util text-meta text-apagado uppercase">{etiqueta}</p> : null}
 
       <ul
-        className={`sin-barra flex items-center gap-3 overflow-x-auto ${etiqueta ? 'mt-3' : ''}`.trim()}
+        className={`sin-barra desvanecer flex items-center gap-3 overflow-x-auto ${etiqueta ? 'mt-3' : ''}`.trim()}
       >
         {antes ? <li className="shrink-0">{antes}</li> : null}
 

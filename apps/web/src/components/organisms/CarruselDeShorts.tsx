@@ -147,7 +147,7 @@ export function CarruselDeShorts({ hrefCanal, shorts }: CarruselDeShortsProps) {
        * el estandar.
        */}
       <ul
-        className="sin-barra flex snap-x snap-mandatory gap-4 overflow-x-auto md:gap-6"
+        className="sin-barra desvanecer flex snap-x snap-mandatory gap-4 overflow-x-auto md:gap-6"
         id="pista-shorts"
         ref={pista}
       >

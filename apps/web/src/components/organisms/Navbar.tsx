@@ -16,7 +16,7 @@ import { LogoJugadon } from '@/components/atoms/marca/LogoJugadon'
 import { Boton } from '@/components/atoms/Boton'
 
 import { ModalDePlataformas, type MotivoDePlataformas } from './ModalDePlataformas'
-import { SECCIONES } from './secciones'
+import { SECCIONES, type Seccion } from './secciones'
 
 /*
  * Navegacion (§5.8).
@@ -51,7 +51,14 @@ export function Navbar() {
   const [acceso, setAcceso] = useState<MotivoDePlataformas | null>(null)
   const ruta = usePathname()
 
-  const secciones = SECCIONES.map((seccion) => ({
+  /*
+   * La navbar solo lleva secciones con pagina: las que estan en preparacion
+   * se quedan en el footer, apagadas, pero en la barra y el menu ocuparian
+   * lugar sin llevar a ningun lado.
+   */
+  const secciones = SECCIONES.filter(
+    (seccion): seccion is Seccion & { href: string } => seccion.href !== null,
+  ).map((seccion) => ({
     ...seccion,
     /*
      * Una nota de `/blog/algo` deja activa la seccion `/blog`. La portada es
@@ -59,10 +66,9 @@ export function Navbar() {
      * siempre activa, asi que solo coincide consigo misma.
      */
     activa:
-      seccion.href !== null &&
-      (seccion.href === '/'
+      seccion.href === '/'
         ? ruta === '/'
-        : ruta === seccion.href || ruta.startsWith(`${seccion.href}/`)),
+        : ruta === seccion.href || ruta.startsWith(`${seccion.href}/`),
   }))
 
   /*
@@ -165,30 +171,18 @@ export function Navbar() {
           {/* La marca de un lado y la navegacion del otro: la barra tiene dos
               anclas y se lee de una. */}
           <nav aria-label="Secciones" className="ml-auto hidden items-center gap-8 lg:flex">
-            {secciones.map((seccion) =>
-              seccion.href === null ? (
-                // Sin pagina todavia: se muestra, pero no finge ser un enlace.
-                <span
-                  aria-disabled
-                  className={`${BASE_ENLACE} cursor-not-allowed text-apagado`}
-                  key={seccion.etiqueta}
-                  title="Sección en preparación"
-                >
-                  {seccion.etiqueta}
-                </span>
-              ) : (
-                <Link
-                  aria-current={seccion.activa ? 'page' : undefined}
-                  className={`${BASE_ENLACE} ${
-                    seccion.activa ? 'text-tinta' : 'text-parrafo hover:text-tinta'
-                  }`}
-                  href={seccion.href}
-                  key={seccion.etiqueta}
-                >
-                  {seccion.etiqueta}
-                </Link>
-              ),
-            )}
+            {secciones.map((seccion) => (
+              <Link
+                aria-current={seccion.activa ? 'page' : undefined}
+                className={`${BASE_ENLACE} ${
+                  seccion.activa ? 'text-tinta' : 'text-parrafo hover:text-tinta'
+                }`}
+                href={seccion.href}
+                key={seccion.etiqueta}
+              >
+                {seccion.etiqueta}
+              </Link>
+            ))}
           </nav>
 
           {/*
@@ -260,33 +254,21 @@ export function Navbar() {
                 vista con el panel abierto. Repetidos serian el mismo par de
                 acciones dos veces en la misma pantalla. */}
             <ul>
-              {secciones.map((seccion) => {
-                const claseFila =
-                  'flex items-center justify-between gap-4 py-5 font-util text-h3 uppercase'
-
-                return (
-                  <li className="border-b border-hairline" key={seccion.etiqueta}>
-                    {seccion.href === null ? (
-                      <span aria-disabled className={`${claseFila} text-apagado`}>
-                        {seccion.etiqueta}
-                        <span className="font-util text-tag uppercase">Pronto</span>
-                      </span>
-                    ) : (
-                      <Link
-                        aria-current={seccion.activa ? 'page' : undefined}
-                        className={`${claseFila} transition-colors duration-150 ease-marca ${
-                          seccion.activa ? 'text-tinta' : 'text-parrafo hover:text-tinta'
-                        }`}
-                        href={seccion.href}
-                        onClick={() => setAbierto(false)}
-                      >
-                        {seccion.etiqueta}
-                        <IconoFlecha className="size-5 shrink-0" />
-                      </Link>
-                    )}
-                  </li>
-                )
-              })}
+              {secciones.map((seccion) => (
+                <li className="border-b border-hairline" key={seccion.etiqueta}>
+                  <Link
+                    aria-current={seccion.activa ? 'page' : undefined}
+                    className={`flex items-center justify-between gap-4 py-5 font-util text-h3 uppercase transition-colors duration-150 ease-marca ${
+                      seccion.activa ? 'text-tinta' : 'text-parrafo hover:text-tinta'
+                    }`}
+                    href={seccion.href}
+                    onClick={() => setAbierto(false)}
+                  >
+                    {seccion.etiqueta}
+                    <IconoFlecha className="size-5 shrink-0" />
+                  </Link>
+                </li>
+              ))}
             </ul>
 
             <p className="mt-8 font-util text-legal text-apagado uppercase">

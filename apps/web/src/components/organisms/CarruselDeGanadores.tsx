@@ -9,13 +9,14 @@ import { IconoFlecha } from '@/components/atoms/iconos/IconoFlecha'
 /**
  * La pista de premios que acompana al premio mayor: dos filas por N columnas.
  *
- * El ancho de columna —13rem— no es un numero suelto: es lo que hace que el
- * alto total de la pista coincida con lo que el premio mayor necesita para
- * dibujar su imagen vertical en su proporcion nativa. Dos filas de tarjeta
- * cuadrada de 208px mas los controles dan ~737px, y una 420x588 sobre los 384px
- * de esa columna pide ~538 de imagen mas ~200 de texto. Tocar este valor
- * empieza a recortar la imagen de la tarjeta grande, que es el efecto que no se
- * ve venir desde aca.
+ * El ancho de columna —10.4rem, el 80% de los 13rem originales— no es un
+ * numero suelto: es lo que hace que el alto total de la pista coincida con lo
+ * que el premio mayor necesita para dibujar su imagen vertical en su proporcion
+ * nativa. Dos filas de tarjeta cuadrada de 166px mas los controles dan ~677px,
+ * y una 420x588 sobre los ~324px de esa columna pide ~454 de imagen mas ~200
+ * de texto. Por eso la columna del premio mayor se achico en la misma
+ * proporcion (ver `UltimosGanadores`): tocar uno sin el otro empieza a recortar
+ * la imagen de la tarjeta grande, que es el efecto que no se ve venir desde aca.
  *
  * La diferencia con `CarruselNoticias` no es cosmetica y es la razon de que
  * sean dos archivos: aca la pista es una grilla con `grid-flow-col`, o sea que
@@ -114,7 +115,7 @@ export function CarruselDeGanadores({ children }: CarruselDeGanadoresProps) {
   return (
     <div className="flex min-w-0 flex-col">
       <ul
-        className="sin-barra grid snap-x snap-mandatory grid-flow-col grid-rows-2 gap-4 overflow-x-auto pb-1 md:gap-6 [grid-auto-columns:13rem]"
+        className="sin-barra desvanecer grid snap-x snap-mandatory grid-flow-col grid-rows-2 gap-4 overflow-x-auto pb-1 md:gap-6 [grid-auto-columns:10.4rem]"
         id="pista-ganadores"
         ref={pista}
       >

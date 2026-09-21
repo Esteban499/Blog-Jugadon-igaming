@@ -1,0 +1,16 @@
+# Lo que no entra nunca en la imagen.
+#
+# El `.env` sobre todo: tiene los secretos de desarrollo, que son publicos, y
+# Next lo carga solo si lo encuentra. Afuera de la imagen no hay forma de que
+# un secreto que falte en produccion se complete en silencio con uno de ellos.
+.env
+.env.*
+
+node_modules
+.next
+*.tsbuildinfo
+next-env.d.ts
+media
+contenido-exportado.json
+Dockerfile
+.dockerignore

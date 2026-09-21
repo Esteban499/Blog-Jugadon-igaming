@@ -1,10 +1,22 @@
 import type { CollectionAfterChangeHook, CollectionConfig } from 'payload'
 import { isAdmin, isEditor } from '../access/roles'
-import { opcionesDeProvincia, opcionesDeTipoDePunto } from '../utilidades/puntos-de-venta'
+import {
+  ETIQUETA_DE_CACHE_DE_PUNTOS,
+  opcionesDeProvincia,
+  opcionesDeTipoDePunto,
+} from '../utilidades/puntos-de-venta'
 
 const revalidarRutas: CollectionAfterChangeHook = async ({ doc }) => {
   try {
-    const { revalidatePath } = await import('next/cache')
+    const { revalidatePath, revalidateTag } = await import('next/cache')
+    /*
+     * La consulta de la pagina se cachea aparte de la pagina —ver `traerPuntos`
+     * en `puntos-de-venta/page.tsx`—, asi que invalidar solo la ruta no
+     * alcanza: se volveria a renderizar con los mismos datos. `expire: 0` y no
+     * `'max'` para que el proximo visitante ya vea el cambio, en lugar de
+     * recibir la version vieja mientras la nueva se arma de fondo.
+     */
+    revalidateTag(ETIQUETA_DE_CACHE_DE_PUNTOS, { expire: 0 })
     revalidatePath('/puntos-de-venta')
   } catch {
     // Fuera del runtime de Next (el runner por CLI, el seed) no hay cache que invalidar.

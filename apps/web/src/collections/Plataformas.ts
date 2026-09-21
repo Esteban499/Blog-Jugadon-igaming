@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 import { isAdmin, isEditor } from '../access/roles'
 import { slugField } from '../fields/slug'
+import { validarUrlDePlataforma } from '../fields/url'
 import { ADAPTADORES_DISPONIBLES } from '../scrapers/tipos'
 
 /**
@@ -41,6 +42,7 @@ export const Plataformas: CollectionConfig = {
       name: 'urlSitio',
       type: 'text',
       label: 'Sitio de la plataforma',
+      validate: validarUrlDePlataforma,
       admin: { description: 'La home de la marca. No es de donde se scrapea.' },
     },
     {
@@ -48,6 +50,9 @@ export const Plataformas: CollectionConfig = {
       type: 'text',
       label: 'Página de promociones',
       required: true,
+      // El bot le pide cosas a esta URL desde el servidor: solo dominios de
+      // Jugadon. Ver `esUrlDePlataforma`.
+      validate: validarUrlDePlataforma,
       admin: {
         description:
           'La URL exacta que visita el bot. Si la plataforma rediseña y la mueve, se corrige acá.',
@@ -63,6 +68,7 @@ export const Plataformas: CollectionConfig = {
       name: 'urlApi',
       type: 'text',
       label: 'Base de la API',
+      validate: validarUrlDePlataforma,
       admin: {
         description:
           'De acá cuelga /bonus-engine/api/campaigns. Es el PROXY_URL que declara el sitio, y no siempre coincide con el subdominio.',

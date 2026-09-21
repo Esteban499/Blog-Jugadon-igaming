@@ -1,7 +1,8 @@
 import type { CollectionAfterChangeHook, CollectionConfig } from 'payload'
-import { isAuthenticated, isEditor, readPublished } from '../access/roles'
+import { editarSinPublicar, isEditor, readPublished } from '../access/roles'
 import { scrapearAhora } from '../endpoints/scrapear-ahora'
 import { slugField } from '../fields/slug'
+import { validarUrl } from '../fields/url'
 import {
   ETIQUETAS_DE_ACTIVACION,
   ETIQUETAS_DE_TIPO,
@@ -81,8 +82,8 @@ export const Promociones: CollectionConfig = {
   },
   access: {
     read: readPublished,
-    create: isAuthenticated,
-    update: isAuthenticated,
+    create: editarSinPublicar,
+    update: editarSinPublicar,
     delete: isEditor,
   },
   versions: {
@@ -315,6 +316,7 @@ export const Promociones: CollectionConfig = {
       type: 'text',
       label: 'Enlace a la promoción',
       required: true,
+      validate: validarUrl(),
       admin: { description: 'Adónde manda el botón. Absoluta, no relativa.' },
     },
     {

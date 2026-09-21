@@ -67,11 +67,11 @@ export function TarjetaGanador({
        * y el bloque de texto siempre ocupa igual, asi que sin esto la tarjeta
        * reparte el alto sobrante como espacio vacio debajo de la pildora.
        *
-       * `basis` iguala al ancho de columna que fija la pista (13rem), o sea que
-       * el punto de partida es el 1:1 exacto para el que fue dibujado el
+       * `basis` iguala al ancho de columna que fija la pista (10.4rem), o sea
+       * que el punto de partida es el 1:1 exacto para el que fue dibujado el
        * cuadrado. De ahi solo sube, y lo que sube es el sobrante de la fila.
        */}
-      <div className="relative min-h-0 w-full flex-1 basis-[13rem] overflow-hidden">
+      <div className="relative min-h-0 w-full flex-1 basis-[10.4rem] overflow-hidden">
         {imagenUrl ? (
           <Image
             alt={juego}
@@ -82,7 +82,7 @@ export function TarjetaGanador({
              * noticias: no hay ninguna de estas imagenes visible al cargar, asi
              * que ninguna lleva `priority`.
              */
-            sizes="208px"
+            sizes="167px"
             src={imagenUrl}
           />
         ) : (

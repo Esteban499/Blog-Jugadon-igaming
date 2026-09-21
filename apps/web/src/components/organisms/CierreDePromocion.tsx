@@ -35,7 +35,7 @@ export function CierreDePromocion({ promo }: CierreDePromocionProps) {
              */
             rel="nofollow sponsored noopener"
             target="_blank"
-            titulo={`Se reclama en ${nombre}`}
+            titulo={`Se canjea en ${nombre}`}
           >
             Ahí están también sus términos completos, que son los que valen y los únicos que están
             siempre actualizados.

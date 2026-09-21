@@ -23,12 +23,15 @@ SALIDA="${SALIDA:-jurisdicciones.pmtiles}"
 # El planeta al dia de hoy. Protomaps lo reconstruye a diario y la URL es fija.
 ORIGEN="${ORIGEN:-https://demo-bucket.protomaps.com/v4.pmtiles}"
 
-# Las cinco jurisdicciones donde opera Jugadon, un rectangulo cada una.
+# Las jurisdicciones que tienen puntos de venta, un rectangulo cada una: CABA,
+# Cordoba, La Rioja y San Luis. Santa Fe estuvo y se saco: no tiene ningun local
+# cargado, y sus tiles eran peso que nadie iba a mirar.
 #
-# Se usa --region con un MultiPolygon y no un --bbox unico: las cinco estan
+# Se usa --region con un MultiPolygon y no un --bbox unico: las cuatro estan
 # desparramadas —La Rioja al oeste, CABA al este— y una caja que las contenga a
-# todas se trae media Argentina central de regalo. Medido: 173 MB con la region
-# contra 1.1 GB del pais entero, para el mismo detalle de calle.
+# todas se trae media Argentina central de regalo. Medido: 105 MB con las cuatro
+# cajas (173 MB cuando eran cinco, con Santa Fe) contra 1.1 GB del pais entero,
+# para el mismo detalle de calle.
 #
 # Local nuevo en otra provincia: se le agrega su caja a este archivo y se vuelve
 # a correr el script.
@@ -46,11 +49,11 @@ FALTA
   exit 1
 fi
 
-echo "Extrayendo las 5 jurisdicciones hasta zoom ${ZOOM}…"
+echo "Extrayendo las jurisdicciones con puntos de venta hasta zoom ${ZOOM}…"
 echo "  origen: ${ORIGEN}"
 echo "  region: ${REGION}"
 echo
-echo "Baja del orden de 175 MB, en un par de minutos. Se hace una vez cada"
+echo "Baja del orden de 105 MB, en un par de minutos. Se hace una vez cada"
 echo "varios meses: el mapa base cambia poco."
 echo
 

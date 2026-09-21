@@ -1,19 +1,25 @@
 import { type Flavor, LIGHT, layers } from '@protomaps/basemaps'
 import type {
   DataDrivenPropertyValueSpecification,
-  FilterSpecification,
   LayerSpecification,
   MapOptions,
 } from 'maplibre-gl'
 
+import { CAPAS, ID_FUENTE_DE_PUNTOS, SIN_ELEGIDO } from './puntos-del-mapa'
 import { TIPOS_DE_PUNTO, type TipoDePunto } from './puntos-de-venta'
 
 /**
- * Todo lo que el mapa necesita saber de MapLibre y Protomaps.
+ * Todo lo que el mapa necesita saber de MapLibre y Protomaps para dibujarse.
  *
- * Son tres cosas que no tienen por que vivir dentro del componente: la
- * traduccion de la paleta del mapa al formato de estilos de MapLibre, el armado
- * del estilo completo, y las dos URLs que se arman a mano.
+ * Son dos cosas que no tienen por que vivir dentro del componente: la
+ * traduccion de la paleta del mapa al formato de estilos de MapLibre, y el
+ * armado del estilo completo con las capas de los puntos.
+ *
+ * **El componente no importa este archivo de forma estatica.** Arrastra
+ * `@protomaps/basemaps`, asi que lo pide con `import()` recien cuando va a
+ * crear el mapa, junto con MapLibre. Lo que necesita desde el primer render
+ * —los nombres de las capas, el enlace para llegar— vive en `puntos-del-mapa.ts`,
+ * que no pesa nada.
  *
  * **Por que no hay tipos propios de la API aca.** La version anterior de este
  * archivo declaraba a mano la superficie de Google Maps, porque esa API llega
@@ -53,7 +59,7 @@ export const leerToken = (nombre: string): string =>
  *
  * Un "flavor" son los ~70 colores con los que Protomaps arma sus capas. Se parte
  * del claro que trae el paquete y se pisan los que se ven; el resto —tipos de
- * suelo que en las cinco jurisdicciones del archivo casi no aparecen— queda en
+ * suelo que en las cuatro jurisdicciones del archivo casi no aparecen— queda en
  * su valor de fabrica, que ya es claro y no desentona.
  *
  * **El objetivo es que se lea como Google Maps**, que es el mapa que la gente ya
@@ -95,7 +101,7 @@ export const saborGoogle = (): Flavor => {
 
     /*
      * `background` es lo que se ve donde no hay datos, y no es lo mismo que la
-     * tierra: el archivo cubre cinco jurisdicciones y no el pais, asi que ese
+     * tierra: el archivo cubre cuatro jurisdicciones y no el pais, asi que ese
      * gris un punto mas oscuro es el borde real del mapa y conviene que se note.
      */
     background: fuera,
@@ -117,7 +123,7 @@ export const saborGoogle = (): Flavor => {
 
     sand: arena,
     beach: arena,
-    /* No hay glaciares en CABA, Cordoba, La Rioja, San Luis ni Santa Fe. */
+    /* No hay glaciares en CABA, Cordoba, La Rioja ni San Luis. */
     glacier: tierra,
 
     /*
@@ -279,60 +285,14 @@ export const estiloDelMapa = ({
 })
 
 /* ========================================================================= */
-/* LOS PUNTOS: FUENTE Y CAPAS                                                */
+/* LOS PUNTOS: CAPAS                                                         */
 /* ========================================================================= */
 
-/**
- * Los mil cuatrocientos puntos son una fuente GeoJSON, no mil cuatrocientos
- * marcadores.
- *
- * La version anterior de esta pantalla dibujaba un `<button>` por local y
- * andaba bien, porque habia catorce. Con el listado entero eso son mil
- * cuatrocientos nodos del DOM que el navegador tiene que reposicionar en cada
- * cuadro de un arrastre: el mapa deja de seguir al dedo. Pasados a una fuente,
- * los dibuja la GPU junto con el resto del mapa, y arrastrar cuesta lo mismo
- * con catorce que con mil cuatrocientos.
- *
- * Lo que se pierde es que el marcador ya no es un elemento de verdad: no entra
- * en el orden de tabulacion ni lo anuncia el lector de pantalla. **Ese trabajo
- * pasa entero a la lista de al lado**, que son fichas reales, se recorren con
- * el teclado y dicen lo mismo que diria el marcador. Es tambien la razon por la
- * que la lista muestra lo que hay en pantalla y no una pagina arbitraria: si es
- * el equivalente accesible del mapa, tiene que decir lo mismo que el mapa.
+/*
+ * La fuente, los nombres de las capas y los filtros del elegido viven en
+ * `puntos-del-mapa.ts`, con el porque de que sean una fuente y no marcadores y
+ * de que no se agrupen. Aca queda lo que depende de los colores del CSS.
  */
-export const ID_FUENTE_DE_PUNTOS = 'puntos-de-venta'
-
-export const CAPAS = {
-  puntos: 'puntos-sueltos',
-  elegido: 'punto-elegido',
-} as const
-
-/**
- * **Sin agrupamiento, a proposito.** La fuente lleva `cluster: false` y no hay
- * capa de cumulos: cada local es su propio circulo en todos los zooms.
- *
- * Lo contrario —juntar los cercanos en una burbuja con el total adentro— es lo
- * que hace cualquier mapa con esta cantidad de puntos, y es lo que estuvo un
- * rato aca. Se saco porque cambia lo que la pantalla es: con cumulos, el
- * encuadre de arranque muestra doce burbujas con numeros y hay que ir abriendo
- * hasta llegar a un local; sin ellos, se ve de una donde hay locales y donde no,
- * que es la pregunta con la que alguien entra.
- *
- * El costo esta a la vista y se acepta: en el encuadre de pais, los cuatrocientos
- * de CABA y los seiscientos de Cordoba son dos manchas azules donde no se
- * distingue uno del otro. La salida es acercar el mapa o usar los filtros, y la
- * lista de al lado dice cuantos hay ahi aunque el mapa no los separe.
- *
- * Lo que **no** cambia es que los puntos siguen siendo una fuente GeoJSON y no
- * marcadores: eso es lo que hace que arrastrar el mapa cueste lo mismo con
- * catorce que con mil cuatrocientos, y no tiene nada que ver con agrupar.
- */
-
-/** El filtro de la capa del elegido cuando no hay ninguno: no matchea nada. */
-export const SIN_ELEGIDO: FilterSpecification = ['==', ['get', 'id'], -1]
-
-/** Y cuando si lo hay. */
-export const filtroDelElegido = (id: number): FilterSpecification => ['==', ['get', 'id'], id]
 
 /**
  * De que color va cada tipo.
@@ -418,36 +378,3 @@ export const capasDePuntos = (): LayerSpecification[] => {
     },
   ]
 }
-
-/* ========================================================================= */
-/* ENLACES Y ENCUADRE                                                        */
-/* ========================================================================= */
-
-export interface Coordenada {
-  lat: number
-  lng: number
-}
-
-/**
- * "Como llegar", contra las coordenadas y no contra el nombre del local.
- *
- * Sigue apuntando a Google Maps aunque el mapa del sitio ya no sea de Google:
- * es un enlace a una app que la gente tiene instalada y sabe usar, no una
- * llamada a una API, asi que no cuesta nada ni ata el sitio a nada.
- */
-export const urlDeComoLlegar = ({ lat, lng }: Coordenada): string =>
-  `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
-
-/**
- * El centro y el zoom de arranque, para cuando no hay ningun punto que encuadrar.
- *
- * Con puntos cargados nunca se usa: el mapa hace `fitBounds` sobre ellos.
- *
- * Ojo con el orden: MapLibre trabaja en `[lng, lat]`, al reves que Google. Es la
- * fuente de error mas comun al portar codigo de una API a la otra —un punto en
- * Argentina cae en el Indico— y por eso el centro se declara aca una vez.
- */
-export const ENCUADRE_ARGENTINA = {
-  centro: [-63.6167, -38.4161] as [number, number],
-  zoom: 3.4,
-} as const

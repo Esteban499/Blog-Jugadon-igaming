@@ -65,8 +65,8 @@ export function TarjetaPremioMayor({
        * recorta ni un pixel.
        *
        * De `lg` para arriba manda la grilla: `flex-1` le da a la imagen todo lo
-       * que sobra despues del texto. Cae en torno a 384x480, algo menos alta que
-       * el original, o sea un recorte parejo de arriba y abajo. Ya no hace falta
+       * que sobra despues del texto. Cae en torno a 324x475, casi la proporcion
+       * del original, con un recorte minimo de los costados. Ya no hace falta
        * ningun techo: el problema que lo pedia era estirar un apaisado a un
        * hueco alto, y el retrato no lo tiene.
        */}
@@ -80,7 +80,7 @@ export function TarjetaPremioMayor({
              * Sin `priority`, igual que las de la pista: al cargar la pagina
              * esto esta muy por debajo de la portada a pantalla completa.
              */
-            sizes="(min-width: 1024px) 407px, 100vw"
+            sizes="(min-width: 1024px) 326px, 100vw"
             src={imagenUrl}
           />
         ) : (

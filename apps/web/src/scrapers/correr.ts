@@ -3,6 +3,7 @@ import type { Payload } from 'payload'
 // Con extension: este modulo lo carga Node por el Jobs Queue, no el bundler.
 // Ver la nota en `jobs/scrapear-promociones.ts`.
 import { slugify } from '../fields/slug.ts'
+import { DOMINIO_DE_PLATAFORMAS, esUrlDePlataforma } from '../utilidades/jurisdicciones.ts'
 import { adaptadores } from './registro.ts'
 import type { PromocionCruda, SlugDeAdaptador } from './tipos'
 
@@ -198,6 +199,23 @@ export const correrScrapeo = async (payload: Payload): Promise<Resumen[]> => {
     const adaptador = adaptadores[plataforma.adaptador as SlugDeAdaptador]
     if (!adaptador) {
       await anotar(`No hay adaptador implementado para "${plataforma.adaptador}".`)
+      continue
+    }
+
+    /*
+     * La misma regla que valida los campos en el panel, repetida aca porque la
+     * validacion solo corre al guardar: una fila cargada antes de que existiera,
+     * o escrita directo en la base, llegaria igual. Estas URLs las pide el
+     * servidor, asi que no sale ningun pedido que no vaya a un dominio de Jugadon.
+     */
+    if (
+      !esUrlDePlataforma(plataforma.urlPromociones) ||
+      (plataforma.urlApi && !esUrlDePlataforma(plataforma.urlApi))
+    ) {
+      await anotar(
+        `La página de promociones o la base de la API no es una dirección https de ` +
+          `${DOMINIO_DE_PLATAFORMAS}: no se lee. Corregirla en la plataforma.`,
+      )
       continue
     }
 

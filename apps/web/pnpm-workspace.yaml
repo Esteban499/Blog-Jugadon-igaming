@@ -3,3 +3,12 @@
 allowBuilds:
   esbuild: true
   sharp: true
+
+# Dependencias transitivas con avisos de seguridad que sus paquetes padre
+# todavia no subieron. Se fuerza la version corregida dentro de la misma mayor,
+# asi que no cambia la API que esperan. Revisar con `pnpm audit --prod` en cada
+# actualizacion de Payload y sacar las que ya no hagan falta.
+overrides:
+  fast-uri@>=3.0.0 <3.1.6: ^3.1.6
+  js-yaml@>=4.0.0 <4.3.2: ^4.3.2
+  dompurify@<3.4.13: ^3.4.13

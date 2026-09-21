@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 
 // Archivos directos y no barril: este componente es cliente. Ver `atoms/index.ts`.
 import { Esqueleto } from '@/components/atoms/Esqueleto'
-import { BloqueCta } from '@/components/molecules/BloqueCta'
 import { TarjetaGanador } from '@/components/molecules/TarjetaGanador'
 import { TarjetaPremioMayor } from '@/components/molecules/TarjetaPremioMayor'
 import type { Ganador } from '@/utilidades/ultimos-ganadores'
@@ -42,9 +41,8 @@ import { ModalDePlataformas, type MotivoDePlataformas } from './ModalDePlataform
  * estados que pueden quedar abiertos a la vez; con uno solo, elegir otra tarjeta
  * reemplaza el modal en lugar de apilarlo.
  *
- * Ese unico estado guarda el motivo y no el ganador porque el modal ya no lo
- * abren solo las tarjetas: el bloque de cierre lo abre para crear cuenta, sin
- * premio detras. Ver `MotivoDePlataformas`.
+ * Ese unico estado guarda el motivo con que se abre el modal: aca siempre es un
+ * premio, con su jurisdiccion. Ver `MotivoDePlataformas`.
  */
 
 /** Cuantas columnas dibuja el esqueleto mientras llegan los premios. */
@@ -74,7 +72,10 @@ type Estado =
  */
 function EsqueletoDeGanadores() {
   return (
-    <div aria-hidden className="grid gap-6 lg:grid-cols-[var(--container-card)_minmax(0,1fr)]">
+    <div
+      aria-hidden
+      className="grid gap-6 lg:grid-cols-[calc(var(--container-card)*0.8)_minmax(0,1fr)]"
+    >
       <div className="flex flex-col overflow-hidden rounded-caja bg-superficie">
         <Esqueleto className="aspect-[420/588] w-full bg-elevada lg:aspect-auto lg:min-h-0 lg:flex-1 lg:basis-0" />
         <div className="flex shrink-0 flex-col gap-3 p-5 md:p-6">
@@ -85,13 +86,13 @@ function EsqueletoDeGanadores() {
         </div>
       </div>
 
-      <div className="grid min-w-0 grid-flow-col grid-rows-2 gap-4 overflow-hidden md:gap-6 [grid-auto-columns:13rem]">
+      <div className="grid min-w-0 grid-flow-col grid-rows-2 gap-4 overflow-hidden md:gap-6 [grid-auto-columns:10.4rem]">
         {Array.from({ length: COLUMNAS_FANTASMA * 2 }, (unused, indice) => (
           <div
             className="flex flex-col overflow-hidden rounded-caja bg-superficie"
             key={indice}
           >
-            <Esqueleto className="min-h-0 w-full flex-1 basis-[13rem] bg-elevada" />
+            <Esqueleto className="min-h-0 w-full flex-1 basis-[10.4rem] bg-elevada" />
             <div className="flex shrink-0 flex-col gap-2 p-4">
               <Esqueleto className="h-5 w-28 rounded-full bg-elevada" />
               <Esqueleto className="h-3 w-20 rounded-full bg-elevada" />
@@ -231,11 +232,12 @@ export function UltimosGanadores() {
             /*
              * `var(--container-card)` es el ancho de card del sistema, el mismo
              * que usa una nota en la grilla de tres columnas. La tarjeta grande
-             * mide fijo eso y la pista se queda con el resto; el alto no se
-             * escribe en ningun lado: la grilla estira la tarjeta grande hasta
-             * igualar las dos filas de la derecha.
+             * mide el 80% de eso —en la misma proporcion que se achico la pista,
+             * ver `CarruselDeGanadores`— y la pista se queda con el resto; el
+             * alto no se escribe en ningun lado: la grilla estira la tarjeta
+             * grande hasta igualar las dos filas de la derecha.
              */
-            <div className="grid gap-6 lg:grid-cols-[var(--container-card)_minmax(0,1fr)]">
+            <div className="grid gap-6 lg:grid-cols-[calc(var(--container-card)*0.8)_minmax(0,1fr)]">
               {mayor ? (
                 <TarjetaPremioMayor
                   imagenUrl={mayor.imagenVertical}
@@ -275,31 +277,6 @@ export function UltimosGanadores() {
               </CarruselDeGanadores>
             </div>
           )}
-        </div>
-
-        {/*
-         * El cierre de la seccion: lo unico naranja de la portada.
-         *
-         * Va aca y no en `page.tsx` porque es el remate de esta vitrina —los
-         * premios de arriba salieron de estas plataformas— y porque el modal
-         * que abre ya vive en este componente. Que este adentro tiene ademas
-         * una consecuencia buena: sin premios no hay seccion, y sin seccion
-         * tampoco hay un bloque invitando a jugar sobre un hueco vacio.
-         *
-         * No navega. El sitio no tiene cuentas propias —son de cada
-         * plataforma—, asi que crear una empieza por elegir jurisdiccion, que
-         * es exactamente lo que preguntan los botones de cuenta de la navbar
-         * con este mismo motivo. Ver `ModalDePlataformas`.
-         */}
-        <div className="mt-12 md:mt-16">
-          <BloqueCta
-            etiqueta="Creá tu cuenta"
-            onClick={() => setMotivo({ tipo: 'registro' })}
-            titulo="Los premios son reales. El próximo puede ser tuyo"
-          >
-            Todo lo de arriba se pagó en las plataformas de Jugadón. Elegí la de tu provincia, creá
-            tu cuenta y jugá.
-          </BloqueCta>
         </div>
       </div>
 

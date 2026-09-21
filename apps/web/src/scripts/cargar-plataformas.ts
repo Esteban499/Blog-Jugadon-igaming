@@ -34,7 +34,10 @@ const cargar = async () => {
       urlSitio: `https://${p.host}.jugadon.bet.ar`,
       urlPromociones: `https://${p.host}.jugadon.bet.ar/bonus-campaign/`,
       urlApi: `https://${p.api}.jugadon.bet.ar`,
-      adaptador: 'jugadon-bonus-engine' as const,
+      // Los dos origenes. Con `jugadon-bonus-engine` solo, los torneos y las
+      // promos de casino —que viven en `sircms`— no llegaban nunca al sitio, y
+      // con los bonos tapados por los banners la grilla quedaba vacia.
+      adaptador: 'jugadon' as const,
     }
 
     const { docs } = await payload.find({
