@@ -22,7 +22,10 @@ export interface PlantillaDelSitioProps {
 
 export function PlantillaDelSitio({ children }: PlantillaDelSitioProps) {
   return (
-    <html className={CLASES_DE_FUENTE} lang="es">
+    // `es-AR` y no `es`: el sitio escribe en voseo y habla de jurisdicciones
+    // argentinas, y es la misma region que declaran `og:locale` y los datos
+    // estructurados.
+    <html className={CLASES_DE_FUENTE} lang="es-AR">
       {/*
        * `dvh` y no `vh`: en el navegador del telefono la barra de direcciones
        * se esconde al bajar y `vh` no lo acompana, asi que la pagina pega un

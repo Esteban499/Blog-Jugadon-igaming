@@ -20,13 +20,7 @@ import {
   type Provincia,
   PROVINCIAS,
 } from '@/utilidades/puntos-de-venta'
-
-export const metadata: Metadata = {
-  // La marca la agrega la plantilla de titulo del layout.
-  title: 'Puntos de Venta',
-  description:
-    'Dónde quedan las salas, agencias y puntos de pago de Jugadon: mapa, direcciones y horarios.',
-}
+import { rutaDePuntosDeVenta } from '@/utilidades/rutas'
 
 /**
  * Un punto ya listo para el mapa, junto con la clave de su provincia.
@@ -115,6 +109,29 @@ const traerPuntos = unstable_cache(
 
 interface PuntosDeVentaPageProps {
   searchParams: Promise<{ tipo?: string; provincia?: string }>
+}
+
+/**
+ * La canonica sale de los filtros ya validados: un `?provincia=cualquiera` no
+ * filtra, asi que su canonica es la del mapa entero.
+ */
+export async function generateMetadata({
+  searchParams,
+}: PuntosDeVentaPageProps): Promise<Metadata> {
+  const { provincia, tipo } = await searchParams
+
+  return {
+    // La marca la agrega la plantilla de titulo del layout.
+    title: 'Puntos de Venta',
+    description:
+      'Dónde quedan las salas, agencias y puntos de pago de Jugadon: mapa, direcciones y horarios.',
+    alternates: {
+      canonical: rutaDePuntosDeVenta({
+        provincia: esProvincia(provincia) ? provincia : undefined,
+        tipo: esTipoDePunto(tipo) ? tipo : undefined,
+      }),
+    },
+  }
 }
 
 export default async function PuntosDeVentaPage({ searchParams }: PuntosDeVentaPageProps) {

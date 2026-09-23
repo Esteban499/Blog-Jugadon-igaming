@@ -1,6 +1,8 @@
+import type { Metadata } from 'next'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 
+import { DatosEstructurados } from '@/components/atoms'
 import { EstadoVacio } from '@/components/molecules'
 import {
   CarruselDeProveedores,
@@ -10,10 +12,21 @@ import {
   VideoHero,
 } from '@/components/organisms'
 import { PlantillaDePortada } from '@/components/templates'
+import { datosDePortada } from '@/utilidades/datos-estructurados'
 
 // ISR: la portada se sirve estatica y se regenera sola. Ademas el hook
 // afterChange de Posts la revalida al instante cuando marketing publica.
 export const revalidate = 3600
+
+export const metadata: Metadata = {
+  // `absolute` y no un texto suelto: este `page.tsx` comparte segmento con el
+  // layout que define la plantilla "%s | Jugadon", y Next solo la aplica a los
+  // segmentos hijos. El titulo se escribe entero para no depender de eso.
+  title: { absolute: 'Blog | Jugadon' },
+  // La portada recibe campanas con `?utm_...`: sin canonica, cada combinacion
+  // de parametros es otra URL con el mismo contenido.
+  alternates: { canonical: '/' },
+}
 
 export default async function HomePage() {
   const payload = await getPayload({ config })
@@ -31,7 +44,13 @@ export default async function HomePage() {
 
   return (
     <>
-      <PlantillaDePortada portada={<VideoHero />} tituloDeSeccion="Últimas noticias">
+      <DatosEstructurados dato={datosDePortada()} />
+
+      <PlantillaDePortada
+        portada={<VideoHero />}
+        titulo="Blog Jugadon"
+        tituloDeSeccion="Últimas noticias"
+      >
         {entradas.length === 0 ? (
           <div className="contenedor pt-10">
             <EstadoVacio>

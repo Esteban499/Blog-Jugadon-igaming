@@ -20,6 +20,13 @@ import type { ReactNode } from 'react'
  */
 
 export interface PlantillaDePortadaProps {
+  /**
+   * El `h1` de la pagina. Es el que leen los buscadores para saber de que trata
+   * la portada, y por eso no puede ser el titulo de una seccion: antes lo era
+   * "Últimas noticias", que describe el carrusel y no el sitio. Va oculto
+   * porque la portada ya muestra la marca en el video.
+   */
+  titulo: string
   /** Lo que se queda anclado ocupando la vista entera. */
   portada: ReactNode
   /**
@@ -35,10 +42,13 @@ export interface PlantillaDePortadaProps {
 export function PlantillaDePortada({
   children,
   portada,
+  titulo,
   tituloDeSeccion,
 }: PlantillaDePortadaProps) {
   return (
     <>
+      <h1 className="sr-only">{titulo}</h1>
+
       {/*
        * El margen negativo de la barra mete la portada por debajo del
        * encabezado, que al tope es transparente. El `z-0` la deja por detras
@@ -56,9 +66,9 @@ export function PlantillaDePortada({
         className="relative z-10 -mt-[var(--solapamiento)] pb-18 md:pb-32"
         id="noticias"
       >
-        <h1 className="sr-only" id="titulo-portada">
+        <h2 className="sr-only" id="titulo-portada">
           {tituloDeSeccion}
-        </h1>
+        </h2>
 
         {children}
       </section>

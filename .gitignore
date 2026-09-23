@@ -70,6 +70,7 @@ test-results/
 
 # ---- Herramientas ----
 .claude/settings.local.json
+.claude/skills/*
 .cache/
 .eslintcache
 

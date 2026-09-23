@@ -27,6 +27,7 @@ export type {
   VarianteDeBoton,
 } from './Boton'
 
+export { DatosEstructurados, type DatosEstructuradosProps } from './DatosEstructurados'
 export { Esqueleto, type EsqueletoProps } from './Esqueleto'
 export { Ficha, type FichaProps } from './Ficha'
 export { SinPortada, type SinPortadaProps } from './SinPortada'

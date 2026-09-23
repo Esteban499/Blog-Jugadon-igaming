@@ -2,32 +2,11 @@ import Image from 'next/image'
 import Link from 'next/link'
 
 import { LogoJugadon } from '@/components/atoms/marca/LogoJugadon'
+// Las cuentas nacionales, que van en la fila principal. Viven afuera porque
+// tambien las declara la portada en sus datos estructurados.
+import { type Red, REDES } from '@/utilidades/sitio'
 
 import { SECCIONES } from './secciones'
-
-interface Red {
-  nombre: string
-  icono: string
-  href: string
-}
-
-/** Las cuentas nacionales, que van en la fila principal. */
-const REDES: readonly Red[] = [
-  { nombre: 'X (Twitter)', icono: '/redes/twitter.svg', href: 'https://x.com/jugadon_arg' },
-  {
-    nombre: 'Instagram',
-    icono: '/redes/instagram.svg',
-    href: 'https://www.instagram.com/jugadon_arg/',
-  },
-  { nombre: 'YouTube', icono: '/redes/youtube.svg', href: 'https://www.youtube.com/@jugadon_arg' },
-  { nombre: 'TikTok', icono: '/redes/tiktok.svg', href: 'https://www.tiktok.com/@jugadon.ok' },
-  {
-    nombre: 'Spotify',
-    icono: '/redes/spotify.svg',
-    href: 'https://open.spotify.com/user/317gntai2wlxn4tdon7du6lisemu',
-  },
-  { nombre: 'Twitch', icono: '/redes/twitch.svg', href: 'https://www.twitch.tv/jugadon_arg' },
-]
 
 /**
  * Las cuentas de cada provincia van aparte y con el nombre al lado: cuatro

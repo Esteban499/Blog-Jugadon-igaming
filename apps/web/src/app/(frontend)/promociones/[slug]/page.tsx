@@ -5,7 +5,9 @@ import config from '@payload-config'
 
 import { CierreDePromocion, FichaDePromocion } from '@/components/organisms'
 import { PlantillaDeArticulo } from '@/components/templates'
-import type { Promocion } from '@/payload-types'
+import type { Media, Promocion } from '@/payload-types'
+import { relacion } from '@/utilidades/payload'
+import { imagenParaCompartir, OPEN_GRAPH_BASE } from '@/utilidades/sitio'
 
 /**
  * Cinco minutos, no una hora como el resto del sitio.
@@ -44,8 +46,18 @@ export async function generateMetadata({ params }: PromocionPageProps): Promise<
   if (!promo) return { title: 'Promoción no encontrada' }
 
   return {
-    title: promo.meta?.title ?? `${promo.titulo} | Blog iGaming`,
+    // Sin marca: la agrega la plantilla de titulo del layout. Escrita aca daba
+    // "Titulo | Blog iGaming | Jugadon".
+    title: promo.meta?.title ?? promo.titulo,
     description: promo.meta?.description ?? promo.resumen ?? promo.oferta ?? undefined,
+    alternates: { canonical: `/promociones/${promo.slug ?? slug}` },
+    openGraph: {
+      ...OPEN_GRAPH_BASE,
+      type: 'website',
+      images: [
+        imagenParaCompartir(relacion<Media>(promo.meta?.image) ?? relacion<Media>(promo.portada)),
+      ],
+    },
   }
 }
 

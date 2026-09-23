@@ -290,10 +290,16 @@ const config = buildConfig({
       uploadsCollection: 'media',
       tabbedUI: true,
       fields: ({ defaultFields }) => defaultFields.map(traducirCampoDeSeo),
+      /*
+       * Sin marca: el sitio le agrega " | Jugadon" a todo titulo con la
+       * plantilla del layout. Si el boton de generar la escribiera tambien, el
+       * resultado en Google seria "Titulo | Blog iGaming | Jugadon". Esos diez
+       * caracteres cuentan: el titulo que se carga aca tiene que caber en unos
+       * 50 para que el total no pase los 60.
+       */
       generateTitle: ({ doc }) => {
         const d = doc as Record<string, unknown>
-        const base = texto(d?.titulo) || texto(d?.nombre)
-        return base ? `${base} | Blog iGaming` : 'Blog iGaming'
+        return texto(d?.titulo) || texto(d?.nombre)
       },
       generateDescription: ({ doc }) => {
         const d = doc as Record<string, unknown>

@@ -1,6 +1,7 @@
 import React from 'react'
 import { RichText, type JSXConvertersFunction } from '@payloadcms/richtext-lexical/react'
 
+import { DatosEstructurados } from '@/components/atoms/DatosEstructurados'
 import { IconoChevron } from '@/components/atoms/iconos/IconoChevron'
 import { AvisoEnLinea } from '@/components/molecules/AvisoEnLinea'
 import { BloqueCta } from '@/components/molecules/BloqueCta'
@@ -68,27 +69,6 @@ const filasDeTabla = (datos: string): string[][] => {
  * etiqueta y escribir markup suelto en el documento del marco.
  */
 const neutralizarCierres = (codigo: string): string => codigo.replace(/<\/script/gi, '<\\/script')
-
-/**
- * Serializa el JSON-LD para meterlo dentro de un `<script>` de la pagina.
- *
- * `JSON.stringify` no escapa `<`: una respuesta de FAQ que diga
- * `</script><script>...` cierra la etiqueta y lo que sigue se ejecuta en la
- * entrada, con el mismo origen que el panel. Cualquier cuenta que edite
- * entradas —la de autor incluida— podria correr codigo con la sesion de quien
- * la abra, un admin entre ellos. Con el `<` escrito como su escape unicode
- * sigue siendo el mismo JSON para Google, pero ya no puede cerrar nada.
- *
- * U+2028 y U+2029 van por lo mismo: son validos en JSON y no en todos los
- * parsers de JavaScript.
- */
-const jsonLdSeguro = (dato: unknown): string =>
-  JSON.stringify(dato)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/&/g, '\\u0026')
-    .replace(/\u2028/g, '\\u2028')
-    .replace(/\u2029/g, '\\u2029')
 
 /**
  * Arma el documento que va a vivir dentro del marco.
@@ -249,10 +229,7 @@ const convertidores: JSXConvertersFunction = ({ defaultConverters }) => ({
             ))}
           </div>
 
-          <script
-            dangerouslySetInnerHTML={{ __html: jsonLdSeguro(jsonLd) }}
-            type="application/ld+json"
-          />
+          <DatosEstructurados dato={jsonLd} />
         </section>
       )
     },

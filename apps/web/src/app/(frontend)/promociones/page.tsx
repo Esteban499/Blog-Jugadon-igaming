@@ -15,8 +15,9 @@ import {
   VERTICALES,
   type Vertical,
 } from '@/scrapers/tipos'
+import type { Plataforma } from '@/payload-types'
 import { idDeRelacion } from '@/utilidades/payload'
-import { PLATAFORMA_POR_DEFECTO } from '@/utilidades/rutas'
+import { PLATAFORMA_POR_DEFECTO, rutaDePromociones } from '@/utilidades/rutas'
 
 /**
  * Cinco minutos, no una hora como el resto del sitio: lo que decide si un bono
@@ -25,13 +26,6 @@ import { PLATAFORMA_POR_DEFECTO } from '@/utilidades/rutas'
  * `promociones` revalida la ruta apenas el bot escribe.
  */
 export const revalidate = 300
-
-export const metadata: Metadata = {
-  // La marca la agrega la plantilla de titulo del layout; repetirla aca daba
-  // "Promociones y Bonos | Blog iGaming | Jugadon".
-  title: 'Promociones y Bonos',
-  description: 'Bonos de bienvenida, recargas y promociones vigentes de las plataformas.',
-}
 
 /**
  * El filtro por vertical entra por la URL, asi que se valida antes de llegar a
@@ -50,6 +44,56 @@ interface PromocionesPageProps {
   searchParams: Promise<{ plataforma?: string; tipo?: string; vertical?: string }>
 }
 
+const buscarPlataformas = async () => {
+  const payload = await getPayload({ config })
+  const { docs } = await payload.find({
+    collection: 'plataformas',
+    depth: 0,
+    limit: 50,
+    sort: 'nombre',
+  })
+  return docs
+}
+
+/**
+ * Siempre hay una plataforma puesta. Las cinco jurisdicciones publican casi
+ * los mismos bonos, asi que el listado sin filtrar era la misma promocion
+ * repetida cinco veces con otra marca: mas ruido que oferta. Sin `?plataforma`
+ * —o con una que no existe— se cae a la de por defecto.
+ *
+ * El ultimo `??` cubre el caso en que esa plataforma no este cargada: antes
+ * que una pantalla vacia, se listan todas.
+ */
+const elegirPlataforma = (plataformas: Plataforma[], slug?: string) =>
+  plataformas.find((p) => p.slug === slug) ??
+  plataformas.find((p) => p.slug === PLATAFORMA_POR_DEFECTO)
+
+/**
+ * La canonica sale de los filtros ya validados, con la misma normalizacion que
+ * los chips: sin la plataforma por defecto ni valores que no existen. Es lo que
+ * junta en una sola URL las visitas que llegan de campanas con `?utm_...`.
+ */
+export async function generateMetadata({
+  searchParams,
+}: PromocionesPageProps): Promise<Metadata> {
+  const { plataforma: slugPlataforma, tipo, vertical } = await searchParams
+  const elegida = elegirPlataforma(await buscarPlataformas(), slugPlataforma)
+
+  return {
+    // La marca la agrega la plantilla de titulo del layout; repetirla aca daba
+    // "Promociones y Bonos | Blog iGaming | Jugadon".
+    title: 'Promociones y Bonos',
+    description: 'Bonos de bienvenida, recargas y promociones vigentes de las plataformas.',
+    alternates: {
+      canonical: rutaDePromociones({
+        plataforma: elegida?.slug ?? undefined,
+        tipo: esTipo(tipo) ? tipo : undefined,
+        vertical: esVertical(vertical) ? vertical : undefined,
+      }),
+    },
+  }
+}
+
 export default async function PromocionesPage({ searchParams }: PromocionesPageProps) {
   const { plataforma: slugPlataforma, tipo: tipoCrudo, vertical: verticalCrudo } = await searchParams
   const payload = await getPayload({ config })
@@ -64,13 +108,8 @@ export default async function PromocionesPage({ searchParams }: PromocionesPageP
    * plataforma puesta o tienen esta" cuesta un `exists` sobre una relacion
    * `hasMany`, que es mas condicion de la que este volumen justifica.
    */
-  const [{ docs: plataformas }, { docs: todosLosBanners }] = await Promise.all([
-    payload.find({
-      collection: 'plataformas',
-      depth: 0,
-      limit: 50,
-      sort: 'nombre',
-    }),
+  const [plataformas, { docs: todosLosBanners }] = await Promise.all([
+    buscarPlataformas(),
     payload.find({
       collection: 'banners',
       // Uno, para que `imagenEscritorio` e `imagenTelefono` lleguen con su URL
@@ -82,18 +121,7 @@ export default async function PromocionesPage({ searchParams }: PromocionesPageP
     }),
   ])
 
-  /**
-   * Siempre hay una plataforma puesta. Las cinco jurisdicciones publican casi
-   * los mismos bonos, asi que el listado sin filtrar era la misma promocion
-   * repetida cinco veces con otra marca: mas ruido que oferta. Sin `?plataforma`
-   * —o con una que no existe— se cae a la de por defecto.
-   *
-   * El ultimo `??` cubre el caso en que esa plataforma no este cargada: antes
-   * que una pantalla vacia, se listan todas.
-   */
-  const elegida =
-    plataformas.find((p) => p.slug === slugPlataforma) ??
-    plataformas.find((p) => p.slug === PLATAFORMA_POR_DEFECTO)
+  const elegida = elegirPlataforma(plataformas, slugPlataforma)
 
   const tipo = esTipo(tipoCrudo) ? tipoCrudo : undefined
   const vertical = esVertical(verticalCrudo) ? verticalCrudo : undefined
