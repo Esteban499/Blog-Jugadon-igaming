@@ -1,26 +1,27 @@
 # Blog iGaming
 
 Blog de contenido informativo y tutoriales. Next.js + Payload CMS en un solo
-proceso, PostgreSQL y almacenamiento S3.
+proceso, PostgreSQL y los archivos en el disco.
 
 | Capa | Local | Produccion |
 | --- | --- | --- |
 | App + CMS | `next dev` en :3000 | contenedor `web` en una VM con aaPanel, detras de su Nginx |
 | Base de datos | Postgres en Docker, :5433 | Postgres en Docker, en la misma VM |
-| Archivos | MinIO en Docker, :9000 | Cloudflare R2 |
+| Archivos | carpeta `apps/web/media/` | volumen de Docker en la misma VM |
 
 Como se despliega y donde viven los secretos: [Produccion en una
 VM](#produccion-en-una-vm).
 
-MinIO y R2 hablan la misma API S3: pasar de un entorno a otro son variables de
-entorno, no codigo.
+Los archivos que se suben desde el panel no van a ningun servicio externo: los
+escribe Payload en el disco y los sirve el mismo proceso. En los dos entornos es
+la misma ruta, lo que cambia es donde apunta.
 
 ## Arrancar
 
 Requisitos: Node 24 (minimo 22.18, ver `.nvmrc`), pnpm 11, Docker.
 
 ```bash
-docker compose up -d          # Postgres + MinIO + creacion del bucket
+docker compose up -d          # Postgres
 cd apps/web
 pnpm install
 pnpm dev                      # http://localhost:3000
@@ -49,7 +50,6 @@ Desde la raiz del repo tambien sirven `pnpm dev`, `pnpm seed`, `pnpm up` y
 | http://localhost:3000/promociones | Bonos vigentes de las cinco plataformas |
 | http://localhost:3000/admin | Panel del CMS |
 | http://localhost:3000/api | API REST |
-| http://localhost:9001 | Consola de MinIO (`minioadmin` / `minioadmin`) |
 
 ## Puerto 5433
 
@@ -61,10 +61,10 @@ explica nada. Dentro de la red de Docker el puerto sigue siendo 5432.
 ## Estructura
 
 ```
-docker-compose.yml             Postgres + MinIO
+docker-compose.yml             Postgres
 apps/web/
   src/payload.config.ts        Colecciones, plugins, i18n, localizacion,
-                               carpetas y storage
+                               carpetas y tareas programadas
   src/collections/             Posts, Categories, Tags, Authors, Promociones,
                                Plataformas, Media, Users
   src/blocks/                  Bloques que se insertan en el editor con `/`
@@ -574,11 +574,12 @@ Tres cosas que hace el importador y conviene saber que hace:
 ### El mapa no es de Google, pero se ve como uno
 
 Es **MapLibre** (BSD-3) sobre un **basemap propio de Protomaps**: un unico
-archivo `.pmtiles` en el bucket del proyecto, que el navegador lee por rangos
-HTTP —pide los pedazos del pais que estan en pantalla, no el archivo entero—.
+archivo `.pmtiles` servido por el mismo dominio que el sitio, que el navegador
+lee por rangos HTTP —pide los pedazos del pais que estan en pantalla, no el
+archivo entero—.
 
-Sin clave de API, sin cuota y sin facturacion por visita. El costo es el storage
-del archivo, y en R2 no se paga egress.
+Sin clave de API, sin cuota y sin facturacion por visita. El costo es el disco
+que ocupa en la VM: unos cientos de MB, una sola vez.
 
 Dos consecuencias que se ven en el codigo:
 
@@ -693,21 +694,21 @@ Sin `NEXT_PUBLIC_MAPA_TILES_URL` la pantalla no se rompe: avisa que falta el
 mapa, y el buscador por nombre sigue llevando a la ficha de cada local, con su
 direccion y el enlace para llegar.
 
-Con la variable puesta pero sin el archivo en el bucket —un 404— el mapa carga
+Con la variable puesta pero sin el archivo en su carpeta —un 404— el mapa carga
 igual y dibuja los puntos sobre el gris de fondo, sin calles ni rotulos. Si el
-mapa sale "vacio", lo primero es revisar que el `.pmtiles` este subido.
+mapa sale "vacio", lo primero es revisar que el `.pmtiles` este en su lugar.
 
-En desarrollo la variable es **relativa** (`/mapa/jurisdicciones.pmtiles`) y
-`next.config.mjs` reenvia `/mapa/*` a MinIO. Con `http://localhost:9000/...` el
-mapa andaba solo en la compu de desarrollo: el celular, abriendo el sitio por la
-IP de la red, entendia `localhost` como si mismo y nunca recibia el archivo. En
-produccion va la URL absoluta de R2.
+La variable es **relativa** (`/mapa/jurisdicciones.pmtiles`) en los dos
+entornos, y por eso no hace falta CORS: el archivo sale por el mismo origen que
+el sitio. En desarrollo va en `apps/web/public/mapa/` y lo sirve Next; en
+produccion, en la carpeta del sitio en la VM, y lo sirve el Nginx de aaPanel
+(`location ^~ /mapa/`), que contesta los 206 sin pasar por el proceso de Node.
 
 ### Lo unico que todavia sale a un tercero
 
 Las tipografias de los rotulos (`NEXT_PUBLIC_MAPA_GLIFOS_URL`), que apuntan a
 `protomaps.github.io`. Para cortar tambien eso, copiar el directorio de fuentes
-de `protomaps/basemaps-assets` al bucket y apuntar la variable ahi.
+de `protomaps/basemaps-assets` junto al `.pmtiles` y apuntar la variable ahi.
 
 ### La atribucion no se toca
 
@@ -724,8 +725,8 @@ Carpeta** y un campo `Carpeta` en cada archivo. Admite subcarpetas: la tabla
 Dos cosas que conviene tener claras:
 
 - **La carpeta es solo organizacion del panel.** No cambia donde se guarda el
-  archivo: el objeto en S3 sigue bajo el mismo `prefix`, y la URL publica no se
-  mueve. Reorganizar carpetas nunca rompe una imagen ya publicada.
+  archivo: sigue en la misma carpeta del disco, con el mismo nombre, y la URL
+  publica no se mueve. Reorganizar carpetas nunca rompe una imagen ya publicada.
 - **Borrar una carpeta no borra los archivos.** La clave foranea es
   `ON DELETE SET NULL`: los archivos quedan sueltos, no se pierden.
 
@@ -888,7 +889,8 @@ base corren en Docker Compose, desde `deploy/`:
 | Nginx | el de aaPanel, con `deploy/nginx-aapanel.conf` | 80 y 443. SSL de Let's Encrypt desde aaPanel |
 | App + panel | contenedor `web` (`apps/web/Dockerfile`) | Solo `127.0.0.1:3000`: la ve Nginx |
 | Postgres 16 | contenedor `postgres`, volumen `postgres-data` | Solo `127.0.0.1:5432` |
-| Archivos | Cloudflare R2 | URL publica del bucket |
+| Archivos | volumen `media-data`, en el disco de la VM | Solo por la app, en `/api/media/file/` |
+| Mapa (`.pmtiles`) | carpeta del sitio en la VM | Nginx directo, en `/mapa/` |
 
 **Docker y no el "Proyecto Node" de aaPanel**, por dos motivos. El proyecto
 Node guarda las variables de entorno en la configuracion del panel, en el
@@ -903,12 +905,29 @@ compilar, y recien desde 22.18 le saca los tipos solo. Con una version anterior
 el sitio anda y la corrida diaria falla, con el error escrito solo en el
 registro del job. La imagen ya trae Node 24: en la VM no hace falta instalarlo.
 
-R2 y no MinIO para los archivos: el proyecto de MinIO dejo de publicar
-imagenes de su edicion comunitaria, y un servicio de almacenamiento sin
-parches, expuesto para servir el mapa, es justo lo que no conviene tener en la
-misma VM que la base. Si los archivos tienen que quedar adentro si o si, la
-alternativa es otro servidor compatible con S3 en un contenedor mas; para la app
-son solo las variables `S3_*`.
+Todo en la misma maquina, sin ningun servicio externo: **los archivos que se
+suben desde el panel viven en el disco de la VM**, en el volumen `media-data`, y
+los sirve la app por `/api/media/file/`. No hay bucket, no hay credenciales de
+storage y no hay CDN.
+
+Lo que eso cuesta, y conviene tener presente:
+
+- **El respaldo pasa a ser dos cosas.** Ese volumen es el unico lugar donde
+  estan esos archivos. Si se pierde, la base queda con filas de `media`
+  apuntando a archivos que ya no existen, y no hay de donde recuperarlos.
+  `desplegar.sh` respalda el volumen junto con el `pg_dump`, en la misma corrida
+  para que los dos sean del mismo momento; falta que ese respaldo salga de la VM.
+- **Las imagenes las sirve Node**, leyendo del disco, en vez de un CDN. Para el
+  trafico de un blog alcanza de sobra; si dejara de alcanzar, se le pone
+  `proxy_cache` al `location ^~ /api/media/file/` de Nginx y el proceso deja de
+  verlas.
+- **Cada imagen ocupa cinco veces.** El original mas los cuatro tamanios que
+  genera `Media` al subirla (`thumbnail`, `card`, `hero`, `og`). Vale mirar el
+  disco de la VM antes de cargar el archivo historico.
+
+Si mas adelante hiciera falta un bucket, la vuelta es el adaptador de storage de
+Payload: cambia `payload.config.ts` y las variables, no los componentes, que
+nunca supieron de donde salen las imagenes.
 
 ### Secretos
 
@@ -920,12 +939,11 @@ contenedores. No hay `.env` de produccion ni en el repo ni en el disco.
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | Clave del usuario `jugadon` de Postgres | `ALTER USER` en la base, despues en el gestor, y redesplegar |
 | `PAYLOAD_SECRET` | Firma las sesiones del panel. 32+ caracteres | Cambiarlo cierra todas las sesiones abiertas |
-| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | Token de R2 con permiso **solo** sobre el bucket del proyecto | Desde el panel de Cloudflare |
 
 Generarlos con `openssl rand -hex 32`. La clave de Postgres va adentro de una
 URL de conexion, y `desplegar.sh` rechaza caracteres que haya que escapar.
 
-Lo que no es secreto —dominio, bucket, URLs publicas— esta en
+Lo que no es secreto —dominio, URLs publicas, puertos— esta en
 `deploy/produccion.env`, versionado, y se revisa como cualquier cambio.
 
 El gestor lo elige la organizacion; el repo no depende de ninguno, porque todo
@@ -979,13 +997,17 @@ aaPanel pone Nginx, el certificado y el firewall. La app no se da de alta como
 4. **Nginx.** Pestania "Config" del sitio:
    - Borrar los dos bloques de estaticos que agrega aaPanel,
      `location ~ .*\.(gif|jpg|jpeg|png|bmp|swf)$` y `location ~ .*\.(js|css)?$`.
-     Buscan los archivos en la carpeta del sitio, que esta vacia: los JS de
-     Next, los logos y las imagenes darian 404.
+     Buscan los archivos en la carpeta del sitio, donde no esta ninguno: los JS
+     de Next, los logos y las imagenes los sirve la app.
    - Pegar `deploy/nginx-aapanel.conf` adentro del `server { }`.
    - Reemplazar la IP de ejemplo por las de la oficina o la VPN. **Viene
      cerrado a proposito**: con la base vacia, Payload muestra en `/admin` la
      pantalla para crear el primer usuario, y el primero que llega queda de
      admin.
+   - En `location ^~ /mapa/`, poner la ruta real de la carpeta del sitio
+     (`/www/wwwroot/<dominio>/mapa/`). Ahi va el `.pmtiles`, y lo sirve Nginx
+     directo: son cientos de MB por rangos que no tienen por que pasar por
+     Node.
    - Guardar. aaPanel prueba la configuracion con `nginx -t` y no la aplica si
      tiene errores.
 5. **No usar la pestania "Reverse proxy".** Arma un `location ^~ /` que le gana
@@ -1000,8 +1022,8 @@ aaPanel pone Nginx, el certificado y el firewall. La app no se da de alta como
 ### Primer despliegue
 
 1. VM con aaPanel, el DNS apuntando a ella y el sitio armado como arriba.
-2. Bucket de R2 creado, con el `.pmtiles` subido y el CORS que imprime
-   `scripts/generar-mapa.sh`. Token con permiso solo sobre ese bucket.
+2. El `.pmtiles` del mapa copiado a la carpeta del sitio en la VM, bajo
+   `mapa/` (lo imprime `scripts/generar-mapa.sh` al terminar).
 3. Completar `deploy/produccion.env`. El script no corre mientras quede un
    `CAMBIAR`.
 4. Cargar los secretos en el gestor.
@@ -1019,9 +1041,25 @@ aaPanel pone Nginx, el certificado y el firewall. La app no se da de alta como
    ```
 
    Lo mismo con `cargar-banners` e `importar-puntos` (antes,
-   `importar-puntos:simular`). `produccion.env` va cargado para que las
-   imagenes suban a R2 y no al MinIO local: lo que ya esta en el entorno le
-   gana al `.env` de desarrollo.
+   `importar-puntos:simular`). `produccion.env` va cargado porque lo que ya
+   esta en el entorno le gana al `.env` de desarrollo.
+
+8. **Mandar a la VM las imagenes que cargaron esos scripts.** Es la parte que
+   antes hacia el bucket sola: los scripts corren en una compu del equipo, y
+   sin bucket las imagenes quedan en el `apps/web/media/` de esa compu, no en
+   el volumen de la VM. La base apuntaria a archivos que en el servidor no
+   existen, y el sitio mostraria los huecos.
+
+   ```bash
+   tar -czf - -C apps/web/media . | ssh usuario@vm \
+     'docker run --rm -i -v jugadon_media-data:/media alpine tar -xzf - -C /media'
+   # los extrae root; el proceso de la app corre con uid 1001
+   ssh usuario@vm 'docker run --rm -v jugadon_media-data:/media alpine chown -R 1001:1001 /media'
+   ```
+
+   Lo mismo vale para cualquier corrida posterior de esos scripts. Las imagenes
+   que se suben desde el panel no necesitan nada de esto: entran directo al
+   volumen.
 
 **`pnpm seed` no se corre nunca en produccion**: crea `admin@blog.local` con
 `admin1234`.
@@ -1039,15 +1077,23 @@ primera, `inicial`, es el esquema entero.
 
 ### Respaldos
 
-`desplegar.sh` deja un `pg_dump` en `deploy/respaldos/` antes de cada
-despliegue, que el `.gitignore` excluye. Tiene emails y hashes de claves:
-tiene que salir de la VM, cifrado, a otro lado. Un respaldo que vive en el
-mismo disco que la base no sobrevive a perder ese disco. Falta el respaldo
-diario programado; los archivos ya estan en R2.
+`desplegar.sh` deja dos archivos en `deploy/respaldos/` antes de cada
+despliegue, que el `.gitignore` excluye: el `pg_dump` de la base y un `.tar.gz`
+del volumen `media-data`. Salen en la misma corrida, asi que las filas y los
+archivos son del mismo momento; restaurar uno sin el otro deja imagenes rotas.
+
+Los dos tienen que salir de la VM, cifrados, a otro lado. El dump tiene emails y
+hashes de claves. Y un respaldo que vive en el mismo disco que la base no
+sobrevive a perder ese disco, que ahora es tambien el unico lugar donde estan
+las imagenes.
+
+Falta el respaldo diario programado. Es mas urgente que antes: cuando los
+archivos estaban en un bucket, perder la VM costaba la base; ahora cuesta las
+dos cosas.
 
 ## Pendientes antes de produccion
 
-- Respaldo diario de la base, cifrado y fuera de la VM.
+- Respaldo diario de la base y del volumen de archivos, cifrado y fuera de la VM.
 - Adaptador de email (SMTP). Sin el, "olvide mi clave" escribe el enlace de
   recuperacion en el log del contenedor: nadie lo recibe, y quien lea los logs
   puede resetear cuentas.

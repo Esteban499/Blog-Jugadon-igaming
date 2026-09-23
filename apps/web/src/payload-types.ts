@@ -234,7 +234,6 @@ export interface Media {
    */
   alt: string;
   epigrafe?: string | null;
-  prefix?: string | null;
   folder?: (number | null) | FolderInterface;
   updatedAt: string;
   createdAt: string;
@@ -1168,7 +1167,6 @@ export interface PuntosDeVentaSelect<T extends boolean = true> {
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
   epigrafe?: T;
-  prefix?: T;
   folder?: T;
   updatedAt?: T;
   createdAt?: T;

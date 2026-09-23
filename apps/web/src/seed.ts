@@ -4,7 +4,7 @@ import sharp from 'sharp'
 
 /**
  * Datos de prueba para verificar la cadena completa: Postgres, el panel y la
- * subida de archivos a MinIO. Es idempotente: si ya hay entradas, no toca nada.
+ * subida de archivos al disco. Es idempotente: si ya hay entradas, no toca nada.
  *
  * Uso: pnpm seed
  */

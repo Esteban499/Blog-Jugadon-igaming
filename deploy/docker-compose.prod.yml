@@ -11,7 +11,7 @@
 # `${VAR:?}` hace que compose se niegue a arrancar si alguno no llego, en vez
 # de levantar un servicio con la variable vacia.
 #
-# La configuracion que NO es secreta (bucket, URLs publicas, puertos) vive en
+# La configuracion que NO es secreta (URLs publicas, puertos) vive en
 # `produccion.env`, versionada, para que se revise como el resto del codigo.
 
 name: jugadon
@@ -49,7 +49,6 @@ services:
       network: host
       args:
         NEXT_PUBLIC_SERVER_URL: ${NEXT_PUBLIC_SERVER_URL:?falta NEXT_PUBLIC_SERVER_URL}
-        NEXT_PUBLIC_S3_PUBLIC_URL: ${NEXT_PUBLIC_S3_PUBLIC_URL:-}
         NEXT_PUBLIC_MAPA_TILES_URL: ${NEXT_PUBLIC_MAPA_TILES_URL:-}
         NEXT_PUBLIC_MAPA_GLIFOS_URL: ${NEXT_PUBLIC_MAPA_GLIFOS_URL:-}
         YOUTUBE_CANAL_ID: ${YOUTUBE_CANAL_ID:-}
@@ -67,11 +66,17 @@ services:
       # PUERTO_WEB, cambiar tambien `proxy_pass` en nginx-aapanel.conf.
       - "127.0.0.1:${PUERTO_WEB:-3000}:3000"
     env_file: produccion.env
+    volumes:
+      # Los archivos que se suben desde el panel. En un volumen y no en la
+      # imagen: `desplegar.sh` reconstruye la imagen en cada despliegue.
+      #
+      # Es el unico lugar donde viven. Perder este volumen es perder todas las
+      # imagenes del sitio, y la base queda con filas de `media` apuntando a
+      # archivos que ya no existen: entra al respaldo junto con el pg_dump.
+      - media-data:/app/media
     environment:
       DATABASE_URI: postgres://jugadon:${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}@postgres:5432/jugadon
       PAYLOAD_SECRET: ${PAYLOAD_SECRET:?falta PAYLOAD_SECRET}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?falta S3_ACCESS_KEY_ID}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?falta S3_SECRET_ACCESS_KEY}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:3000/ || exit 1"]
       interval: 30s
@@ -89,3 +94,4 @@ secrets:
 
 volumes:
   postgres-data:
+  media-data:
