@@ -10,7 +10,10 @@ proceso, PostgreSQL y los archivos en el disco.
 | Archivos | carpeta `apps/web/media/` | volumen de Docker en la misma VM |
 
 Como se despliega y donde viven los secretos: [Produccion en una
-VM](#produccion-en-una-vm).
+VM](#produccion-en-una-vm). Para quien administra el servidor, ahi adentro
+estan [que necesita la VM](#que-necesita-la-vm), los comandos del dia a dia en
+[Operacion](#operacion), [Restaurar un respaldo](#restaurar-un-respaldo) y una
+tabla de [sintoma y donde mirar](#sintoma-y-donde-mirar).
 
 Los archivos que se suben desde el panel no van a ningun servicio externo: los
 escribe Payload en el disco y los sirve el mismo proceso. En los dos entornos es
@@ -929,6 +932,82 @@ Si mas adelante hiciera falta un bucket, la vuelta es el adaptador de storage de
 Payload: cambia `payload.config.ts` y las variables, no los componentes, que
 nunca supieron de donde salen las imagenes.
 
+### Que necesita la VM
+
+Una sola maquina, con Docker y aaPanel. No hace falta instalar Node ni Postgres
+en el sistema: los dos vienen en contenedores.
+
+| | Minimo | Comodo |
+| --- | --- | --- |
+| vCPU | 2 | 4 |
+| RAM | 4 GB | 8 GB |
+| Disco | 40 GB | 80 GB |
+
+**El pico no es el sitio andando, es el despliegue.** En reposo esto consume
+poco: Next sirviendo paginas ya compiladas y un Postgres con pocos miles de
+filas. Lo que pide memoria es `compose build web`, que corre `next build`
+adentro de la VM. Con 2 GB el kernel mata ese proceso por falta de memoria, y el
+sintoma es un `killed` sin mas explicacion, a mitad del build, que no dice que
+fue el OOM. Si la VM no puede crecer, las salidas son agregarle swap o construir
+la imagen en otra maquina y empujarla a un registry.
+
+Estos numeros son un punto de partida razonable, no una medicion de esta app.
+Conviene mirar el consumo real durante los primeros despliegues y ajustar.
+
+El disco lo comen tres cosas, en este orden: las imagenes de Docker y sus capas
+viejas (`docker system prune` cada tanto), el `.pmtiles` del mapa (cientos de
+MB, una sola vez) y el volumen de archivos, que crece con cada imagen que se
+sube al panel —y cada una ocupa cinco veces, por los tamanios que genera—.
+
+### Operacion
+
+Todo se maneja con `docker compose` desde `deploy/`. Estos comandos no tocan
+secretos, asi que no hace falta el gestor:
+
+```bash
+cd deploy
+compose() { docker compose --env-file produccion.env -f docker-compose.prod.yml "$@"; }
+
+compose ps                    # estado y salud de los dos contenedores
+compose logs -f web           # registro de la app, en vivo
+compose logs -f postgres      # registro de la base
+compose restart web           # reiniciar solo la app
+compose stop                  # bajar todo (el sitio deja de responder)
+compose start                 # volverlo a levantar
+```
+
+**`compose ps` es la primera parada cuando algo anda mal.** Los dos servicios
+tienen healthcheck: Postgres responde a `pg_isready` y la app tiene que
+contestar un `GET /` en el 3000. Un contenedor en `unhealthy` ahi es mas
+informativo que cualquier prueba desde afuera, porque descarta a Nginx.
+
+**Nunca `compose down -v`.** La `-v` borra los volumenes, que es donde estan la
+base y todos los archivos. `compose stop` y `compose down` sin la `-v` son
+seguros.
+
+**La hora de los contenedores es UTC**, no la de Argentina. Importa para leer
+los registros y para entender el job diario: el bot de promociones se encola a
+las 09:00 UTC, que son las 06:00 en Argentina.
+
+Ese job **lo dispara la propia app, no un cron del sistema**: vive adentro del
+contenedor `web`, que encola la corrida y cada cinco minutos revisa la cola.
+Consecuencia practica: no hay ninguna entrada en `crontab` que revisar, y si el
+contenedor estuvo caido, lo que haya pasado con la corrida de ese dia se ve en
+`compose logs web`, no en los registros del sistema. La variable
+`EJECUTAR_TAREAS` en `produccion.env` lo prende y lo apaga.
+
+**El certificado lo renueva aaPanel solo**, desde la pestania SSL del sitio.
+Vale confirmar que la renovacion automatica quedo activa: vence cada 90 dias y
+un certificado vencido tira el sitio entero.
+
+**Los registros no se rotan solos.** Docker los deja crecer sin limite en
+`/var/lib/docker/containers/`, y en una VM chica eso llena el disco en meses.
+Conviene ponerle un tope en `/etc/docker/daemon.json`:
+
+```json
+{ "log-driver": "json-file", "log-opts": { "max-size": "10m", "max-file": "3" } }
+```
+
 ### Secretos
 
 **En la VM no se guarda ningun secreto.** Viven en un gestor externo y el
@@ -1090,6 +1169,108 @@ las imagenes.
 Falta el respaldo diario programado. Es mas urgente que antes: cuando los
 archivos estaban en un bucket, perder la VM costaba la base; ahora cuesta las
 dos cosas.
+
+Como se vuelven atras: [Restaurar un respaldo](#restaurar-un-respaldo). **Un
+respaldo que nunca se probo no es un respaldo**: vale correr esa restauracion
+una vez, entera, antes de que haga falta de verdad.
+
+### Restaurar un respaldo
+
+**Los dos archivos de una misma corrida van juntos.** Tienen la misma marca de
+tiempo en el nombre. Restaurar la base con archivos de otro momento deja filas
+de `media` apuntando a imagenes que no estan, o imagenes que ya nadie referencia.
+
+Baja el sitio mientras dura. Desde `deploy/`, con `ARCHIVO` puesto en la marca
+de tiempo que se quiere volver:
+
+```bash
+cd deploy
+compose() { docker compose --env-file produccion.env -f docker-compose.prod.yml "$@"; }
+ARCHIVO=20260923T174202Z
+
+# 1. Parar la app para que nadie escriba durante la restauracion.
+#    Postgres queda en pie: es quien recibe el dump.
+compose stop web
+
+# 2. La base, de cero. El dump es texto plano y trae CREATE TABLE, asi que
+#    cargarlo sobre una base con datos falla tabla por tabla: hay que vaciarla.
+#    WITH (FORCE) cierra las conexiones abiertas, que si no impiden el DROP.
+compose exec -T postgres psql -U jugadon -d postgres -c 'DROP DATABASE jugadon WITH (FORCE);'
+compose exec -T postgres psql -U jugadon -d postgres -c 'CREATE DATABASE jugadon OWNER jugadon;'
+gunzip -c "respaldos/${ARCHIVO}.sql.gz" | compose exec -T postgres psql -U jugadon -d jugadon
+
+# 3. Los archivos. Se vacia el volumen primero: si no, los que se subieron
+#    despues del respaldo sobreviven y quedan sueltos, sin fila en la base.
+gunzip -c "respaldos/${ARCHIVO}-media.tar.gz" | docker run --rm -i \
+  -v jugadon_media-data:/media alpine sh -c \
+  'find /media -mindepth 1 -maxdepth 1 -exec rm -rf {} + ; tar -xf - -C /media'
+
+# 4. El proceso de la app corre con uid 1001; tar extrajo como root.
+docker run --rm -v jugadon_media-data:/media alpine chown -R 1001:1001 /media
+
+# 5. Arriba.
+compose start web
+compose ps
+```
+
+Despues de restaurar, entrar al panel y abrir cualquier entrada con imagen: si
+la portada se ve, la base y los archivos quedaron alineados.
+
+**Restaurar no revierte el codigo.** Si el respaldo es de antes de un cambio de
+esquema, la imagen que esta corriendo espera columnas que ese dump no tiene.
+Hay que volver tambien el repo a ese commit y redesplegar.
+
+### Si un despliegue sale mal
+
+`desplegar.sh` respalda **antes** de migrar y construir, justamente para esto.
+Segun donde se haya cortado:
+
+- **Fallo el build.** No paso nada: la imagen vieja sigue corriendo y el sitio
+  nunca dejo de responder. Se arregla el codigo y se vuelve a correr.
+- **Fallo despues de migrar.** La base ya tiene el esquema nuevo y la app vieja
+  no lo entiende. Aca si se restaura, con el respaldo que el mismo script acaba
+  de dejar, y se vuelve el repo al commit anterior.
+- **La app levanta pero anda mal.** `compose logs -f web` primero. Si hay que
+  volver atras: `git checkout <commit anterior>` y correr `desplegar.sh` de
+  nuevo, que reconstruye la imagen de esa version.
+
+No hay vuelta atras automatica ni dos versiones conviviendo: es una sola VM con
+un solo contenedor. Un despliegue con cambio de esquema tiene una ventana en la
+que el sitio puede quedar caido, asi que conviene hacerlos en horario de poco
+trafico.
+
+### Sintoma y donde mirar
+
+| Lo que se ve | Casi siempre es | Donde confirmarlo |
+| --- | --- | --- |
+| El sitio entero da 502 | El contenedor `web` esta caido o reiniciandose | `compose ps` y `compose logs web` |
+| El sitio tarda o da 504 | La app viva pero trabada, o Postgres sin responder | `compose ps` (salud de los dos) |
+| Todo anda pero las imagenes no | El volumen `media-data` vacio, o con dueno equivocado | `compose logs web`: escribe la ruta exacta que busco |
+| `/admin` da 403 | La IP no esta en el `allow` del Nginx | La config del sitio en aaPanel |
+| `/admin` pide crear el primer usuario | La base esta vacia. **Cerrar el acceso ya**: el primero que entre queda de admin | `compose logs postgres` |
+| El mapa sale gris, sin calles | Falta el `.pmtiles` en la carpeta del sitio | `curl -I https://<dominio>/mapa/jurisdicciones.pmtiles` |
+| El build muere con `killed` | Memoria: el OOM del kernel corto `next build` | `dmesg -T \| tail`, y ver [Que necesita la VM](#que-necesita-la-vm) |
+| Las promociones no se actualizan | El job de las 09:00 UTC no corrio | `compose logs web \| grep -i promoc` |
+| El sitio dejo de cargar de golpe, sin cambios | Certificado vencido, o disco lleno | `df -h` y la pestania SSL de aaPanel |
+
+Cuando falta un archivo, el registro de la app es explicito: escribe
+`File <nombre> ... is missing on the disk. Expected path: <ruta>`. Esa ruta
+dice si el problema es el volumen o la configuracion.
+
+### Comprobar que un despliegue quedo bien
+
+```bash
+cd deploy
+compose() { docker compose --env-file produccion.env -f docker-compose.prod.yml "$@"; }
+
+compose ps                                        # los dos en "healthy"
+curl -sI https://<dominio>/ | head -1             # 200
+curl -sI https://<dominio>/mapa/jurisdicciones.pmtiles | head -1   # 200
+```
+
+Y en el navegador, desde una IP habilitada: entrar al panel, abrir una entrada
+con portada y confirmar que la imagen se ve. Eso prueba de una sola vez la base,
+el volumen de archivos y el Nginx.
 
 ## Pendientes antes de produccion
 
