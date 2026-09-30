@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Genera el basemap de /puntos-de-venta y lo deja listo para subir.
+# Genera el basemap de /puntos-de-venta y lo deja listo para copiar al servidor.
 #
 # El mapa del sitio es UN archivo .pmtiles con la geometria y los rotulos de
 # Argentina. Se saca del build diario de Protomaps —el planeta entero, ~137 GB—
@@ -63,28 +63,21 @@ echo
 echo "Listo: ${SALIDA} ($(du -h "${SALIDA}" | cut -f1))"
 echo
 cat << SIGUIENTE
-Ahora subirlo al bucket, bajo el prefijo mapa/:
+Ahora copiarlo a donde lo sirva el servidor web, siempre bajo /mapa/:
 
-  Local (MinIO)
-    mc alias set local http://localhost:9000 minioadmin minioadmin
-    mc cp ${SALIDA} local/blog-media/mapa/jurisdicciones.pmtiles
+  Desarrollo
+    mv ${SALIDA} apps/web/public/mapa/jurisdicciones.pmtiles
+    # lo sirve el propio Next; la carpeta no se versiona (ver .gitignore)
 
-  Produccion (R2)
-    rclone copy ${SALIDA} r2:blog-media/mapa/
-    # o desde el panel de Cloudflare, arrastrando el archivo
+  Produccion (la VM con aaPanel)
+    scp ${SALIDA} usuario@vm:/www/wwwroot/<dominio>/mapa/jurisdicciones.pmtiles
+    # lo sirve Nginx: ver \`location ^~ /mapa/\` en deploy/nginx-aapanel.conf
 
-Y confirmar que NEXT_PUBLIC_MAPA_TILES_URL apunta ahi.
+NEXT_PUBLIC_MAPA_TILES_URL queda relativa (/mapa/jurisdicciones.pmtiles) en los
+dos entornos. Al salir por el mismo origen que el sitio NO hace falta CORS.
 
-IMPORTANTE — CORS. El navegador pide el archivo desde el dominio del sitio, que
-es otro origen que el del bucket. Sin CORS el mapa queda en negro y la consola
-muestra un error de origen cruzado. En R2, en Configuracion > CORS del bucket:
-
-  [{ "AllowedOrigins": ["https://tudominio.com"],
-     "AllowedMethods": ["GET", "HEAD"],
-     "AllowedHeaders": ["range", "if-match"],
-     "ExposeHeaders": ["etag", "content-range", "content-length"],
-     "MaxAgeSeconds": 86400 }]
-
-Los headers de Range son los que importan: sin exponerlos, MapLibre no puede
-leer el archivo por pedazos y termina intentando bajarlo entero.
+Lo que si importa son los pedidos con Range: MapLibre lee el archivo por
+pedazos, y un servidor que conteste 200 con el archivo entero en vez de 206 hace
+que el navegador se baje los cientos de MB. Nginx y Next responden 206 de
+fabrica; si se mete un CDN o un proxy en el medio, hay que confirmarlo.
 SIGUIENTE

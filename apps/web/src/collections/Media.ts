@@ -29,6 +29,15 @@ export const Media: CollectionConfig = {
     delete: isEditor,
   },
   upload: {
+    /**
+     * Donde quedan los archivos en el disco. Relativo se resuelve desde el
+     * directorio del config: en desarrollo, `apps/web/media/`.
+     *
+     * En el contenedor `MEDIA_DIR` lo pisa con `/app/media`, que es un volumen
+     * de Docker. Tiene que ser un volumen si o si: la imagen se reconstruye en
+     * cada despliegue, y lo que haya quedado adentro se pierde ahi mismo.
+     */
+    staticDir: process.env.MEDIA_DIR ?? 'media',
     focalPoint: true,
     /**
      * Formatos de mapa de bits, con nombre y apellido. `image/*` dejaba pasar

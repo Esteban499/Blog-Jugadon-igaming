@@ -18,7 +18,7 @@ tsconfig.check.json
 next-env.d.ts
 
 # ---- Entorno ----
-# El .env de este repo solo tiene credenciales locales (MinIO, Postgres de
+# El .env de este repo solo tiene credenciales locales (Postgres de
 # Docker, secret de desarrollo), asi que se versiona a proposito para que
 # cualquiera pueda levantar el proyecto sin configurar nada.
 # Lo que NO se versiona nunca: los overrides locales y todo lo de produccion.
@@ -30,13 +30,13 @@ next-env.d.ts
 *.key
 
 # ---- Payload ----
-# Uploads del adaptador local. En este proyecto el media vive en MinIO/R2,
-# pero si se cae el storage Payload escribe aca.
+# Los archivos que se suben desde el panel. Es contenido, no codigo: en la VM
+# viven en un volumen de Docker y salen por el respaldo, no por git.
 apps/web/media/
 apps/web/src/media/
 
 # ---- Mapa (generados por scripts/generar-mapa.sh) ----
-# El .pmtiles se sube al bucket, no al repo: son cientos de MB.
+# El .pmtiles se copia a mano al servidor, no al repo: son cientos de MB.
 *.pmtiles
 *.mbtiles
 scripts/*.zip

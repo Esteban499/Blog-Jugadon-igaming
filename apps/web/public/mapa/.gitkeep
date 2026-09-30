@@ -1,0 +1,4 @@
+Aca va jurisdicciones.pmtiles, que genera scripts/generar-mapa.sh.
+
+No se versiona: son cientos de MB. Sin el archivo, la pagina de puntos de venta
+carga y la lista funciona; lo que no se dibuja es el mapa.

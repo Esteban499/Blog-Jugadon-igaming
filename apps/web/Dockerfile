@@ -30,7 +30,6 @@ COPY . .
 # asi que tienen que estar al compilar. No son secretas: son URLs publicas.
 # `YOUTUBE_CANAL_ID` tampoco, y hace falta porque la portada se prerenderiza aca.
 ARG NEXT_PUBLIC_SERVER_URL
-ARG NEXT_PUBLIC_S3_PUBLIC_URL
 ARG NEXT_PUBLIC_MAPA_TILES_URL
 ARG NEXT_PUBLIC_MAPA_GLIFOS_URL
 ARG YOUTUBE_CANAL_ID
@@ -38,7 +37,6 @@ ENV NODE_ENV=production \
     NEXT_OUTPUT=standalone \
     NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_SERVER_URL=${NEXT_PUBLIC_SERVER_URL} \
-    NEXT_PUBLIC_S3_PUBLIC_URL=${NEXT_PUBLIC_S3_PUBLIC_URL} \
     NEXT_PUBLIC_MAPA_TILES_URL=${NEXT_PUBLIC_MAPA_TILES_URL} \
     NEXT_PUBLIC_MAPA_GLIFOS_URL=${NEXT_PUBLIC_MAPA_GLIFOS_URL} \
     YOUTUBE_CANAL_ID=${YOUTUBE_CANAL_ID}
@@ -75,6 +73,16 @@ COPY --from=builder /app/public ./public
 # `standalone` no lo ve. Va el `src` entero, en la misma ruta que tenia en el
 # build: esa ruta quedo escrita en el bundle. Node 24 le saca los tipos solo.
 COPY --from=builder /app/src ./src
+
+# Los archivos que se suben desde el panel. Va montado un volumen encima (ver
+# docker-compose.prod.yml): la imagen se reconstruye en cada despliegue y lo que
+# quede adentro se pierde.
+#
+# El directorio tiene que existir aca y ser del usuario del proceso: Docker le
+# copia dueno y permisos al volumen la primera vez que lo monta. Si no, el
+# volumen nace de root y la primera subida falla con EACCES.
+ENV MEDIA_DIR=/app/media
+RUN mkdir -p /app/media && chown nextjs:nodejs /app/media
 
 USER nextjs
 EXPOSE 3000

@@ -14,14 +14,14 @@
 #
 # Que hace, en orden:
 #   1. Verifica que llegaron los secretos y que produccion.env esta completo.
-#   2. Levanta Postgres y, si la base ya tiene datos, la respalda.
+#   2. Levanta Postgres y, si la base ya tiene datos, respalda base y archivos.
 #   3. Construye la imagen: migra la base y compila (ver apps/web/Dockerfile).
 #   4. Reemplaza la app. El Nginx de aaPanel la encuentra en el loopback.
 #
 set -euo pipefail
 cd "$(dirname "$0")"
 
-SECRETOS=(POSTGRES_PASSWORD PAYLOAD_SECRET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY)
+SECRETOS=(POSTGRES_PASSWORD PAYLOAD_SECRET)
 
 faltan=()
 for nombre in "${SECRETOS[@]}"; do
@@ -33,9 +33,9 @@ if ((${#faltan[@]})); then
   exit 1
 fi
 
-if grep -q 'CAMBIAR' produccion.env; then
+if grep -q '^[^#]*CAMBIAR' produccion.env; then
   echo "deploy/produccion.env todavia tiene valores CAMBIAR:" >&2
-  grep -n 'CAMBIAR' produccion.env >&2
+  grep -n '^[^#]*CAMBIAR' produccion.env >&2
   exit 1
 fi
 
@@ -68,6 +68,20 @@ if compose exec -T postgres psql -U jugadon -d jugadon -tAc \
   archivo="respaldos/$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
   echo "==> Respaldo de la base en deploy/${archivo}"
   compose exec -T postgres pg_dump -U jugadon -d jugadon | gzip > "$archivo"
+fi
+
+# Los archivos del panel viven en el volumen `media-data` y en ningun otro
+# lado: no hay bucket que los replique. Van al mismo respaldo que la base y en
+# la misma corrida, para que el dump y los archivos sean del mismo momento.
+#
+# Lo hace un contenedor aparte: el volumen es de la app, que en este punto del
+# despliegue todavia esta por reemplazarse. La condicion del volumen cubre la
+# primera corrida, cuando `web` nunca se levanto y el volumen no existe.
+if [[ -n "${archivo:-}" ]] && docker volume inspect jugadon_media-data > /dev/null 2>&1; then
+  archivo_media="respaldos/$(basename "${archivo%.sql.gz}")-media.tar.gz"
+  echo "==> Respaldo de los archivos en deploy/${archivo_media}"
+  docker run --rm -v jugadon_media-data:/media:ro alpine \
+    tar -czf - -C /media . > "$archivo_media"
 fi
 
 echo "==> Imagen (migraciones + build)"

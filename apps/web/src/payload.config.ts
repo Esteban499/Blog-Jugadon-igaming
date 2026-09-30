@@ -4,7 +4,6 @@ import sharp from 'sharp'
 import { buildConfig, type Field } from 'payload'
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
-import { s3Storage } from '@payloadcms/storage-s3'
 import { seoPlugin } from '@payloadcms/plugin-seo'
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { searchPlugin } from '@payloadcms/plugin-search'
@@ -49,16 +48,13 @@ const enProduccion =
 const VALORES_DE_EJEMPLO = new Set([
   'dev-secret-solo-para-local-no-usar-en-produccion',
   'cambiar-este-valor',
-  'minioadmin',
 ])
 
 /**
  * Frena el arranque en produccion si falta un secreto o quedo uno de ejemplo.
  *
  * Tira en lugar de avisar: un warning en el log de un proceso que igual
- * arranca es exactamente lo que nadie lee. S3 solo se revisa si esta cargado:
- * sin esas variables fallan las subidas a la vista de todos, pero no se abre
- * ningun agujero, y el build y las migraciones no las reciben.
+ * arranca es exactamente lo que nadie lee.
  */
 const verificarEntorno = () => {
   if (!enProduccion || typeof window !== 'undefined') return
@@ -68,10 +64,8 @@ const verificarEntorno = () => {
   for (const nombre of ['DATABASE_URI', 'PAYLOAD_SECRET']) {
     if (!process.env[nombre]) problemas.push(`falta ${nombre}`)
   }
-  for (const nombre of ['PAYLOAD_SECRET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY']) {
-    if (VALORES_DE_EJEMPLO.has(process.env[nombre] ?? '')) {
-      problemas.push(`${nombre} tiene el valor de ejemplo del repo`)
-    }
+  if (VALORES_DE_EJEMPLO.has(process.env.PAYLOAD_SECRET ?? '')) {
+    problemas.push('PAYLOAD_SECRET tiene el valor de ejemplo del repo')
   }
   if ((process.env.PAYLOAD_SECRET ?? '').length < 32) {
     problemas.push('PAYLOAD_SECRET tiene que tener al menos 32 caracteres')
@@ -267,24 +261,6 @@ const config = buildConfig({
   typescript: { outputFile: path.resolve(dirname, 'payload-types.ts') },
 
   plugins: [
-    /**
-     * Local: MinIO. Produccion: Cloudflare R2. Mismo SDK, misma API S3:
-     * el salto entre entornos son variables de entorno, no codigo.
-     */
-    s3Storage({
-      collections: { media: { prefix: 'media' } },
-      bucket: process.env.S3_BUCKET || '',
-      config: {
-        endpoint: process.env.S3_ENDPOINT,
-        region: process.env.S3_REGION || 'us-east-1',
-        forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
-        credentials: {
-          accessKeyId: process.env.S3_ACCESS_KEY_ID || '',
-          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || '',
-        },
-      },
-    }),
-
     seoPlugin({
       collections: ['posts', 'categories', 'promociones'],
       uploadsCollection: 'media',

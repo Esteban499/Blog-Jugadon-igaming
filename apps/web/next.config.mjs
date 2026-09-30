@@ -22,31 +22,6 @@ const CABECERAS_DE_SEGURIDAD = [
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), payment=(), usb=()' },
 ]
 
-/*
- * El bucket como origen de imagenes remotas, armado desde la misma variable que
- * usa el reenvio de `/mapa/*`. Antes estaba escrito a mano como
- * `http://localhost:9000`, que en produccion era un patron muerto en el mejor
- * caso y, en el peor, el optimizador de imagenes pidiendole cosas a lo que
- * escuche en ese puerto de la VM.
- */
-const patronDelBucket = () => {
-  const crudo = process.env.NEXT_PUBLIC_S3_PUBLIC_URL
-  if (!crudo) return []
-  try {
-    const url = new URL(crudo)
-    return [
-      {
-        protocol: url.protocol.replace(':', ''),
-        hostname: url.hostname,
-        port: url.port,
-        pathname: `${url.pathname.replace(/\/+$/, '')}/**`,
-      },
-    ]
-  } catch {
-    return []
-  }
-}
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /*
@@ -76,22 +51,6 @@ const nextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: CABECERAS_DE_SEGURIDAD }]
   },
-  /*
-   * El `.pmtiles` del mapa sale por el mismo host que el sitio. En desarrollo
-   * `NEXT_PUBLIC_MAPA_TILES_URL` es `/mapa/jurisdicciones.pmtiles` y esto lo
-   * reenvia a MinIO: con `http://localhost:9000` en la variable, el celular le
-   * pedia el archivo a si mismo y el mapa no aparecia. Next reenvia el header
-   * `Range` y devuelve el 206 tal cual, que es lo que necesita pmtiles.
-   *
-   * En produccion `NEXT_PUBLIC_MAPA_TILES_URL` es la URL absoluta de R2 y el
-   * navegador lee el archivo directo de ahi, asi que esto no se usa: 100 MB
-   * por rangos es trafico que conviene que no pase por el proceso de Node.
-   */
-  async rewrites() {
-    const bucket = process.env.NEXT_PUBLIC_S3_PUBLIC_URL
-    if (!bucket) return []
-    return [{ source: '/mapa/:archivo', destination: `${bucket}/mapa/:archivo` }]
-  },
   images: {
     /*
      * Declarar `localPatterns` apaga el permiso por defecto para todo lo que
@@ -107,14 +66,14 @@ const nextConfig = {
       { pathname: '/providers/**', search: '' },
       { pathname: '/banners/**', search: '' },
       /*
-       * Las portadas no salen del bucket directo: Payload las sirve por su
-       * propia ruta y le agrega el prefijo de la coleccion como query. Sin
-       * este patron `next/image` las rechaza por venir con query string.
+       * Las portadas las sirve Payload por su propia ruta, leyendo del disco
+       * de la VM (ver `staticDir` en la coleccion Media). Van sin query: el
+       * `?prefix=media` que habia aca lo agregaba el adaptador de S3, y con
+       * ese `search` declarado `next/image` rechaza con 400 las URLs actuales.
        */
-      { pathname: '/api/media/file/**', search: '?prefix=media' },
+      { pathname: '/api/media/file/**', search: '' },
     ],
     remotePatterns: [
-      ...patronDelBucket(),
       /*
        * Las miniaturas de los juegos de la seccion de ultimos ganadores. No son
        * media de Payload: las sirve el CDN de la plataforma de casino, que es
